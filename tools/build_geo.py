@@ -1,7 +1,8 @@
 """Builds data/geo.json: the real Lake Michigan shoreline and city/suburb outlines for the CTABot base map.
 
 Source: US Census Bureau TIGER/Line 2023 (public domain).
-  - AREAWATER for Cook County (17031): the "Lake Michigan" polygons give the real shoreline.
+  - COASTLINE (national): the Great Lakes shoreline as lines; the lake is the part of the map box on
+    the water side of them (found by checking which piece contains a point known to be open lake).
   - PLACE for Illinois (17): city and village boundaries (Chicago, Evanston, Skokie, Oak Park, ...).
 Runs on GitHub (see .github/workflows/geo.yml) because census.gov can't be reached from everywhere.
 
@@ -13,7 +14,8 @@ import io, json, math, sys, urllib.request, zipfile
 import shapefile  # pyshp
 
 YEAR = "2023"
-WATER = f"https://www2.census.gov/geo/tiger/TIGER{YEAR}/AREAWATER/tl_{YEAR}_17031_areawater.zip"
+COAST = f"https://www2.census.gov/geo/tiger/TIGER{YEAR}/COASTLINE/tl_{YEAR}_us_coastline.zip"
+OPEN_LAKE = (-87.55, 41.90)       # a point 6 km offshore from downtown: certainly lake
 PLACE = f"https://www2.census.gov/geo/tiger/TIGER{YEAR}/PLACE/tl_{YEAR}_17_place.zip"
 # the map's area: a little past every L station (Linden 42.07 N, 95th 41.72 N, O'Hare -87.90, lakefront)
 S, N, W, E = 41.66, 42.12, -87.97, -87.48
@@ -90,13 +92,25 @@ def touches(bbox):
 
 
 def main():
+    from shapely.geometry import LineString, Point, box
+    from shapely.ops import polygonize, unary_union
+    frame = box(W, S, E, N)
+    lines = []
+    c = reader(fetch(COAST))
+    for shp in c.shapes():
+        if not touches(shp.bbox):
+            continue
+        for part in rings(shp):
+            if len(part) > 1:
+                g = LineString(part).intersection(frame)
+                if not g.is_empty:
+                    lines.append(g)
     lake = []
-    w = reader(fetch(WATER))
-    names = [f[0] for f in w.fields[1:]]
-    for rec, shp in zip(w.records(), w.shapes()):
-        r = dict(zip(names, rec))
-        if r.get("FULLNAME") == "Lake Michigan" and touches(shp.bbox):
-            lake += [x for x in (out_ring(g) for g in rings(shp)) if x]
+    if lines:
+        faces = list(polygonize(unary_union(lines + [frame.boundary])))
+        water = [f for f in faces if f.contains(Point(*OPEN_LAKE))]
+        for f in water:
+            lake += [x for x in [out_ring(list(f.exterior.coords))] if x]
     if not lake:
         sys.exit("No Lake Michigan polygons found: stopping rather than drawing a map without the lake")
 
