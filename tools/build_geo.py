@@ -17,8 +17,8 @@ YEAR = "2023"
 COAST = f"https://www2.census.gov/geo/tiger/TIGER{YEAR}/COASTLINE/tl_{YEAR}_us_coastline.zip"
 OPEN_LAKE = (-87.55, 41.90)       # a point 6 km offshore from downtown: certainly lake
 PLACE = f"https://www2.census.gov/geo/tiger/TIGER{YEAR}/PLACE/tl_{YEAR}_17_place.zip"
-# the map's area: a little past every L station (Linden 42.07 N, 95th 41.72 N, O'Hare -87.90, lakefront)
-S, N, W, E = 41.66, 42.12, -87.97, -87.48
+# the area covered: well past every L station (Linden 42.07 N, 95th 41.72 N, O'Hare -87.90, lakefront)
+S, N, W, E = 41.50, 42.25, -88.20, -87.25     # wider than the map itself, so its cut edges sit off-screen
 SIMPLIFY_M = 15
 
 
