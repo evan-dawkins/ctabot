@@ -1,10 +1,28 @@
 # CTABot
 
-An unofficial live map of every CTA L train, built on the same idea as [MetraBot](https://github.com/evan-dawkins/metrabot): real positions only, never guessed.
+An unofficial live map of every CTA 'L' train, built on [MetraBot](https://github.com/evan-dawkins/metrabot)'s engine. Real positions only: nothing is guessed.
 
-Work in progress.
+**Live:** https://evan-dawkins.github.io/ctabot/
 
-- Live data comes through a small Cloudflare Worker (shared with MetraBot, in `metrabot/worker.js`, under `/cta/`).
-- Station data comes from CTA's official timetable, rebuilt weekly by a GitHub Action (`tools/build_stations.py`).
+- **The map is real geography.** Every line follows CTA's own track shapes, over the real Lake Michigan shoreline and town boundaries (Chicago lighter, the suburbs darker, Chicago's street grid inside the city). Nothing is enlarged: the Loop is its true size, so zoom in to read it. Lines that share track are drawn side by side.
+- **Trains** come from CTA Train Tracker every 30 seconds. Each one is matched to its own line by GPS and glides only between real reported positions.
+- **Click a train** to see where it's headed and its next stop. **Click a station** to see CTA's arrival predictions, and ☆ to pin it to your board.
+- **The line bar** at the bottom shows one line on its own, and folds away.
+- **Sound:** brown noise, water, or sonar (with a radar sweep over the Loop).
+- **Train of the moment:** leave it alone for 2 minutes and the camera rides along with a live train, with a voice check-in. Close the train's card (×) to stop.
+- **Service alerts** from CTA, plus a live ticker under the title.
 
-Not affiliated with the Chicago Transit Authority. Data provided by the CTA.
+## How it's built
+
+| Piece | What it does |
+| --- | --- |
+| `index.html` | The whole page. The map data is baked in, so it also works opened as a file. |
+| `tools/build_stations.py` | Downloads CTA's GTFS timetable and saves stations, stop patterns and track shapes (`data/stations.json`). |
+| `tools/build_geo.py` | Downloads the Census TIGER shoreline and town boundaries (`data/geo.json`). |
+| `tools/build_layout.py` | Builds the map from those two (`data/network.json`) and writes it into `index.html`. |
+| `tools/build_voice.py` | Records the check-in voice with Kokoro, a free open-source voice (`voice/`). |
+| Cloudflare Worker | Shared with MetraBot (`metrabot/worker.js`, the `/cta/` routes). It holds the CTA key, so the key never reaches the page. |
+
+GitHub Actions rerun the station download every Monday, and the outline download whenever its builder changes. Both rebuild the map.
+
+Not affiliated with the Chicago Transit Authority. Data provided by the CTA. Map outlines: US Census Bureau TIGER/Line.

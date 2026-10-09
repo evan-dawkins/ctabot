@@ -1,4 +1,4 @@
-# Downloads CTA's official timetable, saves data/stations.json, and rebuilds the map layout (data/layout.json) from it.
+# Downloads CTA's official timetable, saves data/stations.json, and rebuilds the map (data/network.json, baked into index.html).
 # Runs once a week, and on demand: Actions tab -> "Refresh CTA stations" -> Run workflow.
 name: Refresh CTA stations
 on:
@@ -17,14 +17,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install numpy
       - run: mkdir -p data && python tools/build_stations.py
-      - run: python tools/build_layout.py         # stops here (nothing saved) if a hand-placed station was renamed
+      - run: python tools/build_layout.py         # stops here (nothing saved) if anything doesn't add up
       - name: Save it if the stations changed
         run: |
-          git add data/stations.json data/layout.json
+          git add data/stations.json data/network.json index.html
           if git diff --cached --quiet; then echo "Stations unchanged."; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Refresh CTA stations"
-          git push
+          git pull --rebase -q && git push
