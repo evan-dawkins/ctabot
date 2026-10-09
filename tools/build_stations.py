@@ -34,10 +34,11 @@ def rdp(pts, eps):
     while stack:
         a, b = stack.pop()
         (ax, ay), (bx, by) = xy[a], xy[b]
-        dx, dy = bx - ax, by - ay; L = math.hypot(dx, dy) or 1e-9
+        dx, dy = bx - ax, by - ay; L = math.hypot(dx, dy)
         best, bi = -1, -1
         for i in range(a + 1, b):
-            d = abs(dy * (xy[i][0] - ax) - dx * (xy[i][1] - ay)) / L
+            # a loop line starts and ends at the same spot: measure from that point instead of a zero-length line
+            d = abs(dy * (xy[i][0] - ax) - dx * (xy[i][1] - ay)) / L if L > 1 else math.hypot(xy[i][0] - ax, xy[i][1] - ay)
             if d > best:
                 best, bi = d, i
         if best > eps:
