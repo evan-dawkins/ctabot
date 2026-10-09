@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CTABot</title>
+<meta name="description" content="Unofficial live map of every CTA L train. Real positions only.">
+<meta name="application-name" content="CTABot">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Same palette and type as MetraBot, so the two can merge later */
+:root{
+  --bg:#1B2C3A;--ink:#E3EAF0;--muted:#8497A8;--faint:#3C5062;--panel:rgba(15,27,38,.94);--edge:#243A4C;
+  --live:#5FD39B;--warn:#E8B14E;--err:#F0766A;--hover:rgba(255,255,255,.06);--pressed:rgba(255,255,255,.09);
+  --shadow:0 8px 28px rgba(0,0,0,.35);--dot:rgba(140,170,195,.07);
+  --st-fill:#F4F7FA;--st-ring:#0E1A24;--halo:#1B2C3A;
+  --sans:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --t-fast:.15s;--t-base:.22s;--ease:cubic-bezier(.2,.7,.2,1);
+  /* CTA line colours; Brown and Purple lifted a little so they read on the dark background */
+  --Red:#E0263F;--Blue:#1FB0EA;--Brown:#9A6844;--Green:#1DB24F;--Orange:#FF6A3D;--Purple:#8A63D2;--Pink:#EE8DB4;--Yellow:#F9E300;
+}
+:root[data-theme="light"]{
+  --bg:#EEF2F5;--ink:#16222E;--muted:#5A6A79;--faint:#A5B2BD;--panel:rgba(255,255,255,.96);--edge:#D2DAE1;
+  --live:#1B8752;--warn:#A96E12;--err:#C23E36;--hover:rgba(0,0,0,.05);--pressed:rgba(0,0,0,.08);
+  --shadow:0 8px 28px rgba(20,40,60,.16);--dot:rgba(40,62,84,.09);
+  --st-fill:#FFFFFF;--st-ring:#16222E;--halo:#EEF2F5;
+  /* official CTA colours */
+  --Red:#C60C30;--Blue:#00A1DE;--Brown:#62361B;--Green:#009B3A;--Orange:#F9461C;--Purple:#522398;--Pink:#E27EA6;--Yellow:#E0C800;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+#map{position:fixed;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;
+  background-image:radial-gradient(var(--dot) 1px,transparent 1.2px);background-size:22px 22px}
+#map.drag{cursor:grabbing}
+.line{fill:none;stroke-linejoin:round;stroke-linecap:round}
+.st{stroke:var(--st-fill);stroke-linecap:round}
+.st-ring{stroke:var(--st-ring);stroke-linecap:round}
+.lbl{fill:var(--ink);paint-order:stroke;stroke:var(--halo);stroke-linejoin:round;font-weight:500;pointer-events:none}
+.lbl.big{font-weight:700}
+.train{cursor:pointer;transition:opacity var(--t-base) var(--ease)}
+.train .hit{fill:transparent}
+.train .arrow{stroke:var(--st-ring);stroke-linejoin:round}
+.train.stale{opacity:.35}
+.train.sel .arrow{stroke:var(--ink)}
+.ping{fill:none;pointer-events:none}
+
+/* top bar */
+#bar{position:fixed;top:12px;left:12px;right:12px;display:flex;align-items:center;gap:10px;pointer-events:none;z-index:5}
+#bar>*{pointer-events:auto}
+.mark{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:7px 12px;box-shadow:var(--shadow);display:flex;align-items:baseline;gap:10px;white-space:nowrap}
+.mark b{font-size:20px;font-weight:700;letter-spacing:.2px}
+.mark span{color:var(--muted);font-size:14px}
+#status{background:var(--panel);border:1px solid var(--edge);border-radius:999px;padding:6px 12px 6px 10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:8px;font-size:14px;white-space:nowrap}
+#status i{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
+#status[data-s="live"] i{background:var(--live);box-shadow:0 0 0 0 var(--live);animation:pulse 2.4s infinite}
+#status[data-s="slow"] i{background:var(--warn)}
+#status[data-s="off"] i{background:var(--err)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--live) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.spacer{flex:1}
+.btn{background:var(--panel);border:1px solid var(--edge);border-radius:10px;width:38px;height:38px;display:grid;place-items:center;box-shadow:var(--shadow);cursor:pointer;transition:background var(--t-fast)}
+.btn:hover{background:color-mix(in srgb,var(--panel) 80%,var(--ink) 8%)}
+.btn:active{transform:translateY(1px)}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#zoom{position:fixed;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;z-index:5}
+
+/* legend */
+#legend{position:fixed;left:12px;bottom:12px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;box-shadow:var(--shadow);padding:8px 6px;z-index:5;min-width:168px}
+#legend h2{margin:2px 8px 6px;font-size:12px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.lg{display:flex;align-items:center;gap:9px;padding:4px 8px;border-radius:7px;font-size:15px;cursor:pointer;user-select:none;width:100%;background:none;border:0;text-align:left}
+.lg:hover{background:var(--hover)}
+.lg .sw{width:20px;height:6px;border-radius:3px;flex:none}
+.lg .n{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--muted)}
+.lg .n.none{font-size:12px}
+.lg[aria-pressed="false"]{opacity:.4}
+#legend .foot{margin:6px 8px 2px;font-size:12px;color:var(--muted);max-width:170px;line-height:1.3}
+
+/* train card */
+#card{position:fixed;z-index:6;background:var(--panel);border:1px solid var(--edge);border-radius:12px;box-shadow:var(--shadow);padding:10px 12px 11px;width:250px;display:none;
+  opacity:0;transform:translateY(4px);transition:opacity var(--t-base) var(--ease),transform var(--t-base) var(--ease)}
+#card.show{display:block}
+#card.in{opacity:1;transform:none}
+#card .top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+#card .chip{font-size:12px;font-weight:700;padding:2px 7px;border-radius:5px;color:#fff;letter-spacing:.3px}
+#card .run{color:var(--muted);font-size:13px}
+#card .x{margin-left:auto;width:26px;height:26px;border-radius:7px;border:0;background:none;cursor:pointer;font-size:18px;line-height:1;color:var(--muted)}
+#card .x:hover{background:var(--hover);color:var(--ink)}
+#card .to{font-size:19px;font-weight:700;margin:0 0 2px}
+#card .nx{font-size:15px}
+#card .nx b{font-weight:600}
+#card .meta{margin-top:6px;font-size:13px;color:var(--muted)}
+#card .flag{display:inline-block;margin-top:6px;font-size:12px;font-weight:600;padding:2px 7px;border-radius:5px;background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--warn)}
+
+#msg{position:fixed;left:50%;top:64px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:8px 14px;box-shadow:var(--shadow);font-size:14px;z-index:6;display:none;max-width:calc(100% - 24px);text-align:center}
+@media (max-width:640px){
+  .mark span{display:none}
+  #legend{padding:6px 4px;min-width:0}
+  #legend h2,#legend .foot{display:none}
+  .lg{font-size:13px;padding:3px 6px;gap:6px}
+  .lg .sw{width:14px}
+  #card{left:12px!important;right:12px;bottom:12px;top:auto!important;width:auto}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<svg id="map" role="img" aria-label="Live map of CTA L trains">
+  <g id="world"><g id="gLines"></g><g id="gStations"></g><g id="gPings"></g><g id="gTrains"></g><g id="gLabels"></g></g>
+</svg>
+
+<div id="bar">
+  <div class="mark"><b>CTABot</b><span>Unofficial live L map</span></div>
+  <div id="status" data-s="wait" aria-live="polite"><i></i><span id="statusText">Connecting…</span></div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn" title="Light / dark" aria-label="Switch light or dark"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+</div>
+
+<div id="zoom">
+  <button class="btn" id="zin" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="btn" id="zout" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+  <button class="btn" id="zfit" title="Whole map" aria-label="Show the whole map"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+</div>
+
+<div id="legend" aria-label="Lines">
+  <h2>Live trains</h2>
+  <div id="lgList"></div>
+  <div class="foot" id="lgFoot">Only trains reporting GPS are shown. Nothing is guessed.</div>
+</div>
+
+<div id="card" role="dialog" aria-label="Train details">
+  <div class="top"><span class="chip" id="cChip"></span><span class="run" id="cRun"></span><button class="x" id="cX" aria-label="Close">×</button></div>
+  <div class="to" id="cTo"></div>
+  <div class="nx" id="cNext"></div>
+  <div id="cFlag"></div>
+  <div class="meta" id="cMeta"></div>
+</div>
+<div id="msg"></div>
+
+<script>
+"use strict";
+const WORKER = "https://transit-aquarium.edawk10.workers.dev";
+const POLL_MS = 30e3;                 // CTA updates about every 30 s; the Worker shares one answer per 25 s
+const GAP = 3.6, LINE_W = 3.1;        // map units: spacing of side-by-side lines, and line width
+const LINES = ["Red","Blue","Brown","Green","Orange","Purple","Pink","Yellow"];
+const NS = "http://www.w3.org/2000/svg";
+const $ = id => document.getElementById(id);
+const svgEl = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const store = { get(k){ try { return localStorage.getItem("ctabot." + k); } catch(_) { return null; } },
+                set(k, v){ try { localStorage.setItem("ctabot." + k, v); } catch(_) {} } };
+
+/* ---------------------------------------------- theme ---------------------------------------------- */
+const root = document.documentElement;
+function applyTheme(t){ root.dataset.theme = t; }
+applyTheme(store.get("theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+$("themeBtn").onclick = () => { const t = root.dataset.theme === "light" ? "dark" : "light"; applyTheme(t); store.set("theme", t); };
+
+/* ---------------------------------------------- map data ---------------------------------------------- */
+let L;                                // layout.json
+const node = {};                      // id -> {x,y}
+const edgeOf = {};                    // "a|b" -> edge
+const routesByLine = {};              // line -> [{pts:[[x,y]], cum:[], stopAt:{stationId:[index in pts]}, hops:[]}]
+let lineSegs = [];                    // every drawn piece, for keeping labels off the lines
+
+// CTA adds "(Red)", "(Brown/Purple)", "(Blue - O'Hare Branch)" etc. to tell same-named stations apart; the line colours already do that
+const short = n => n.replace(/\s*\([^)]*\)\s*$/, "").replace("Harold Washington Library-State/Van Buren", "Harold Washington Library");
+
+// Offset a polyline sideways, a different amount per piece, joining pieces at their corners.
+function offsetPolyline(pts, offs){
+  const n = pts.length - 1, segs = [];
+  for (let i = 0; i < n; i++){
+    const [ax, ay] = pts[i], [bx, by] = pts[i+1], dx = bx-ax, dy = by-ay, len = Math.hypot(dx, dy) || 1;
+    const nx = -dy/len*offs[i], ny = dx/len*offs[i];
+    segs.push({ a:[ax+nx, ay+ny], b:[bx+nx, by+ny], d:[dx/len, dy/len] });
+  }
+  const out = [segs[0].a];
+  for (let i = 1; i < n; i++){
+    const s1 = segs[i-1], s2 = segs[i], cr = s1.d[0]*s2.d[1] - s1.d[1]*s2.d[0];
+    if (Math.abs(cr) < 1e-6){ out.push(s1.b); if (Math.hypot(s1.b[0]-s2.a[0], s1.b[1]-s2.a[1]) > .01) out.push(s2.a); continue; }
+    const t = ((s2.a[0]-s1.a[0])*s2.d[1] - (s2.a[1]-s1.a[1])*s2.d[0]) / cr;
+    const p = [s1.a[0] + s1.d[0]*t, s1.a[1] + s1.d[1]*t];
+    if (Math.hypot(p[0]-pts[i][0], p[1]-pts[i][1]) > 4*GAP + 6){ out.push(s1.b, s2.a); } else out.push(p);
+  }
+  out.push(segs[n-1].b);
+  return out;
+}
+
+function buildGeometry(){
+  for (const s of L.stations) node[s.id] = s;
+  for (const j of L.junctions) node[j.id] = j;
+  for (const e of L.edges){ edgeOf[e.a + "|" + e.b] = e; }
+  const gLines = $("gLines"); gLines.textContent = "";
+  lineSegs = [];
+  // draw order: lines under lines, so the bundle order reads the same everywhere
+  for (const line of LINES){
+    routesByLine[line] = [];
+    for (const r of L.routes[line] || []){
+      const pts = [], offs = [], marks = [];         // marks: index in pts of each drawn node
+      const seq = r.drawn;
+      for (let i = 0; i < seq.length - 1; i++){
+        const u = seq[i], v = seq[i+1];
+        let e = edgeOf[u + "|" + v], fwd = true;
+        if (!e){ e = edgeOf[v + "|" + u]; fwd = false; }
+        if (!e) continue;
+        const ep = fwd ? e.pts : e.pts.slice().reverse();
+        const k = e.lines.indexOf(line), o = (k - (e.lines.length - 1)/2) * GAP * (fwd ? 1 : -1);
+        if (!pts.length){ pts.push(ep[0]); marks.push(0); }
+        for (let j = 1; j < ep.length; j++){ pts.push(ep[j]); offs.push(o); }
+        marks.push(pts.length - 1);
+      }
+      if (pts.length < 2) continue;
+      const op = offsetPolyline(pts, offs);
+      // the offset polyline can have extra points at jogs; map each drawn node to its nearest offset point (in order)
+      const mi = []; let from = 0;
+      for (const m of marks){
+        const [x, y] = pts[m]; let best = from, bd = 1e9;
+        for (let j = from; j < op.length; j++){ const d = Math.hypot(op[j][0]-x, op[j][1]-y); if (d < bd){ bd = d; best = j; } if (d > bd + 3*GAP + 20) break; }
+        mi.push(best); from = best;
+      }
+      const cum = [0]; for (let j = 1; j < op.length; j++) cum.push(cum[j-1] + Math.hypot(op[j][0]-op[j-1][0], op[j][1]-op[j-1][1]));
+      // hops between consecutive stopping stations, for placing trains
+      const stopSet = new Set(r.stations), hops = [];
+      let prev = null;
+      for (let i = 0; i < seq.length; i++){
+        if (!stopSet.has(seq[i])) continue;
+        if (prev) hops.push({ a: seq[prev.i], b: seq[i], la: cum[mi[prev.i]], lb: cum[mi[i]] });
+        prev = { i };
+      }
+      routesByLine[line].push({ pts: op, cum, hops });
+      svgEl("path", { class: "line", d: "M" + op.map(p => p[0].toFixed(1) + " " + p[1].toFixed(1)).join("L"),
+                      stroke: `var(--${line})`, "stroke-width": LINE_W, "data-line": line }, gLines);
+      for (let j = 1; j < op.length; j++) lineSegs.push([op[j-1][0], op[j-1][1], op[j][0], op[j][1]]);
+    }
+  }
+  // stations: a slim capsule across only the lines that stop there (a line passing through without stopping
+  // stays uncovered), drawn on the busiest track piece that touches the station
+  const gS = $("gStations"); gS.textContent = "";
+  const touching = {};
+  for (const e of L.edges) for (const id of [e.a, e.b]) (touching[id] ||= []).push(e);
+  for (const s of L.stations){
+    const es = (touching[s.id] || []).slice().sort((a, b) => b.lines.length - a.lines.length);
+    let c1 = [s.x, s.y], c2 = [s.x, s.y];
+    for (const e of es){
+      const stops = e.lines.map((l, i) => s.lines.includes(l) ? i : -1).filter(i => i >= 0);
+      if (!stops.length) continue;
+      const n = e.lines.length, atA = e.a === s.id;
+      const [p, q] = atA ? [e.pts[0], e.pts[1]] : [e.pts[e.pts.length - 2], e.pts[e.pts.length - 1]];
+      const dx = q[0] - p[0], dy = q[1] - p[1], len = Math.hypot(dx, dy) || 1, nx = -dy/len, ny = dx/len;
+      const o1 = (Math.min(...stops) - (n - 1)/2) * GAP, o2 = (Math.max(...stops) - (n - 1)/2) * GAP;
+      c1 = [s.x + nx*o1, s.y + ny*o1]; c2 = [s.x + nx*o2, s.y + ny*o2];
+      break;
+    }
+    const transfer = s.lines.length > 1, rr = transfer ? 2.9 : 2.3;
+    s.cx = (c1[0] + c2[0]) / 2; s.cy = (c1[1] + c2[1]) / 2;
+    s.r = Math.hypot(c2[0] - c1[0], c2[1] - c1[1]) / 2 + rr + 1;
+    const d = `M${c1[0].toFixed(2)} ${c1[1].toFixed(2)}L${c2[0].toFixed(2)} ${c2[1].toFixed(2)}`;
+    svgEl("path", { class: "st-ring", d, "stroke-width": (rr + 1.1) * 2 }, gS);
+    svgEl("path", { class: "st", d, "stroke-width": rr * 2 }, gS);
+  }
+}
+
+/* ---------------------------------------------- view: pan & zoom ---------------------------------------------- */
+const svg = $("map"), world = $("world");
+const view = { k: 1, tx: 0, ty: 0 };
+const K_MIN = .4, K_MAX = 9;
+function applyView(){ world.setAttribute("transform", `matrix(${view.k} 0 0 ${view.k} ${view.tx} ${view.ty})`); scheduleLabels(); positionCard(); }
+function fit(animate){
+  const W = innerWidth, H = innerHeight, padT = 70, padB = 20, side = W > 700 ? 200 : 20;
+  const [mw, mh] = L.size, k = Math.min((W - side*2) / mw, (H - padT - padB) / mh);
+  const to = { k, tx: (W - mw*k) / 2, ty: padT + (H - padT - padB - mh*k) / 2 };
+  animate ? animateView(to) : (Object.assign(view, to), applyView());
+}
+let viewAnim = 0;
+function animateView(to, ms = 380){
+  const from = { ...view }, t0 = performance.now(); cancelAnimationFrame(viewAnim);
+  const step = now => { const t = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - t, 3);
+    view.k = from.k + (to.k - from.k)*e; view.tx = from.tx + (to.tx - from.tx)*e; view.ty = from.ty + (to.ty - from.ty)*e;
+    applyView(); if (t < 1) viewAnim = requestAnimationFrame(step); };
+  viewAnim = requestAnimationFrame(step);
+}
+function zoomAt(f, cx, cy){
+  const k = Math.min(K_MAX, Math.max(K_MIN, view.k * f)); f = k / view.k;
+  view.tx = cx - (cx - view.tx) * f; view.ty = cy - (cy - view.ty) * f; view.k = k; applyView();
+}
+svg.addEventListener("wheel", e => { e.preventDefault(); cancelAnimationFrame(viewAnim); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0018)), e.clientX, e.clientY); }, { passive: false });
+const ptrs = new Map(); let dragMoved = 0, pinch = null;
+svg.addEventListener("pointerdown", e => { svg.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); dragMoved = 0; cancelAnimationFrame(viewAnim);
+  if (ptrs.size === 2){ const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a[0]-b[0], a[1]-b[1]) }; } });
+svg.addEventListener("pointermove", e => {
+  if (!ptrs.has(e.pointerId)) return;
+  const [px, py] = ptrs.get(e.pointerId), dx = e.clientX - px, dy = e.clientY - py;
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 1){ dragMoved += Math.abs(dx) + Math.abs(dy); if (dragMoved > 3) svg.classList.add("drag"); view.tx += dx; view.ty += dy; applyView(); }
+  else if (ptrs.size === 2 && pinch){ const [a, b] = [...ptrs.values()], d = Math.hypot(a[0]-b[0], a[1]-b[1]);
+    view.tx += dx/2; view.ty += dy/2; zoomAt(d / pinch.d, (a[0]+b[0])/2, (a[1]+b[1])/2); pinch.d = d; dragMoved = 99; }
+});
+const endPtr = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) svg.classList.remove("drag"); };
+svg.addEventListener("pointerup", endPtr); svg.addEventListener("pointercancel", endPtr);
+svg.addEventListener("dblclick", e => { animateZoom(2, e.clientX, e.clientY); });
+function animateZoom(f, cx, cy){ const k = Math.min(K_MAX, Math.max(K_MIN, view.k * f)), g = k / view.k;
+  animateView({ k, tx: cx - (cx - view.tx) * g, ty: cy - (cy - view.ty) * g }, 260); }
+$("zin").onclick = () => animateZoom(1.6, innerWidth/2, innerHeight/2);
+$("zout").onclick = () => animateZoom(1/1.6, innerWidth/2, innerHeight/2);
+$("zfit").onclick = () => fit(true);
+addEventListener("resize", () => fit(false));
+
+/* ---------------------------------------------- labels ---------------------------------------------- */
+// Placed in screen space after every zoom/pan: the most important names first, any that would
+// overlap a placed name, a station or a line are left out until there's room.
+const measure = document.createElement("canvas").getContext("2d");
+let labelTimer = 0;
+function scheduleLabels(){ clearTimeout(labelTimer); labelTimer = setTimeout(placeLabels, 90); }
+function segHitsBox(s, b){            // does line piece s (screen coords) cross box b?
+  const [x1, y1, x2, y2] = s;
+  if (Math.max(x1, x2) < b[0] || Math.min(x1, x2) > b[2] || Math.max(y1, y2) < b[1] || Math.min(y1, y2) > b[3]) return false;
+  const f = (x, y) => (x2-x1)*(y-y1) - (y2-y1)*(x-x1);
+  const c = [f(b[0],b[1]), f(b[2],b[1]), f(b[0],b[3]), f(b[2],b[3])];
+  return !(c.every(v => v > 0) || c.every(v => v < 0));
+}
+function placeLabels(){
+  const g = $("gLabels"); g.textContent = "";
+  if (!L) return;
+  const k = view.k, W = innerWidth, H = innerHeight;
+  const fs = k > 2.2 ? 13 : 12, pad = 2, half = LINE_W * k / 2 + .5;
+  measure.font = `500 ${fs}px "Barlow Semi Condensed", "Arial Narrow", sans-serif`;
+  const S = (x, y) => [x*k + view.tx, y*k + view.ty];
+  const segs = [];
+  for (const [x1, y1, x2, y2] of lineSegs){ const a = S(x1, y1), b = S(x2, y2);
+    if (Math.max(a[0], b[0]) < -50 || Math.min(a[0], b[0]) > W + 50 || Math.max(a[1], b[1]) < -50 || Math.min(a[1], b[1]) > H + 50) continue;
+    segs.push([a[0], a[1], b[0], b[1]]); }
+  const taken = [];
+  const dots = L.stations.map(s => { const [x, y] = S(s.cx, s.cy), r = s.r*k + 1; return [x - r, y - r, x + r, y + r]; });
+  const hits = b => taken.some(t => !(b[2] < t[0] || b[0] > t[2] || b[3] < t[1] || b[1] > t[3]));
+  const order = L.stations.slice().sort((a, b) => (b.lines.length - a.lines.length) || ((b.term|0) - (a.term|0)) || a.name.localeCompare(b.name));
+  for (const d of dots) taken.push(d);
+  let shown = 0;
+  for (const s of order){
+    const [x, y] = S(s.cx, s.cy);
+    if (x < -40 || x > W + 40 || y < -20 || y > H + 20) continue;
+    const txt = short(s.name), w = measure.measureText(txt).width, h = fs, r = s.r*k + 4;
+    const tries = [[x + r, y - h/2, "start"], [x - r - w, y - h/2, "end"], [x - w/2, y - r - h, "middle"], [x - w/2, y + r, "middle"],
+                   [x + r*.7, y - r*.7 - h, "start"], [x + r*.7, y + r*.7, "start"], [x - r*.7 - w, y - r*.7 - h, "end"], [x - r*.7 - w, y + r*.7, "end"]];
+    // skip the station's own dot when checking overlaps
+    const own = dots[L.stations.indexOf(s)];
+    for (const [bx, by, anchor] of tries){
+      const b = [bx - pad, by - pad + 1, bx + w + pad, by + h + pad - 1];
+      const ownIdx = taken.indexOf(own); if (ownIdx >= 0) taken.splice(ownIdx, 1);
+      const bad = hits(b) || segs.some(sg => segHitsBox(sg, [b[0] - half, b[1] - half, b[2] + half, b[3] + half]));   // padded by half a line width
+      taken.push(own);
+      if (bad) continue;
+      taken.push(b);
+      const tx = anchor === "start" ? bx : anchor === "end" ? bx + w : bx + w/2;
+      const t = svgEl("text", { class: "lbl" + (s.lines.length > 1 ? " big" : ""), x: ((tx - view.tx)/k).toFixed(2), y: ((by + h*.8 - view.ty)/k).toFixed(2),
+                                "font-size": (fs/k).toFixed(3), "text-anchor": anchor, "stroke-width": (3/k).toFixed(3) }, g);
+      t.textContent = txt; shown++;
+      break;
+    }
+  }
+}
+
+/* ---------------------------------------------- trains ---------------------------------------------- */
+// A train's GPS fix is matched to the nearest stretch of its own line (in real geography), and drawn at the same
+// fraction of that stretch on the schematic. Between fixes it glides from where it was to where it really is now,
+// arriving as the next fix is due. It never goes past the latest real fix.
+const trains = new Map();            // line:run -> state
+let lastData = null, lastOk = 0, feedTime = 0, selected = null, failCount = 0;
+const geoXY = (lat, lon) => { const [clat, clon] = L.geo_center;
+  return [(lon - clon) * 111.32 * Math.cos(clat * Math.PI / 180), -(lat - clat) * 110.54]; };
+
+function locate(t, prevRoute){
+  const [gx, gy] = geoXY(t.lat, t.lon), routes = routesByLine[t.line] || [];
+  let best = null;
+  routes.forEach((r, ri) => r.hops.forEach(h => {
+    const A = node[h.a], B = node[h.b]; if (!A || !B) return;
+    const dx = B.gx - A.gx, dy = B.gy - A.gy, L2 = dx*dx + dy*dy || 1e-9;
+    let u = ((gx - A.gx)*dx + (gy - A.gy)*dy) / L2; u = Math.max(0, Math.min(1, u));
+    const dist = Math.hypot(A.gx + dx*u - gx, A.gy + dy*u - gy);
+    // strongly prefer stretches that end (or start) at the station CTA says is next
+    const score = dist + (h.b === t.next_sta_id || h.a === t.next_sta_id ? 0 : .6) - (ri === prevRoute ? .001 : 0);
+    if (!best || score < best.score) best = { score, ri, h, u, dist };
+  }));
+  if (!best || best.dist > 1.2) return null;           // more than 1.2 km from its own line: don't draw it
+  const { h, u } = best;
+  // which way is it going? toward the next station CTA reports
+  let dir;
+  if (t.next_sta_id === h.b) dir = 1; else if (t.next_sta_id === h.a) dir = -1;
+  else { const N = node[t.next_sta_id]; dir = N ? (Math.hypot(N.gx - node[h.b].gx, N.gy - node[h.b].gy) <= Math.hypot(N.gx - node[h.a].gx, N.gy - node[h.a].gy) ? 1 : -1) : 1; }
+  return { ri: best.ri, len: h.la + (h.lb - h.la) * u, dir };
+}
+function pointAt(route, len){
+  const { pts, cum } = route; len = Math.max(0, Math.min(cum[cum.length-1], len));
+  let lo = 0, hi = cum.length - 1;
+  while (hi - lo > 1){ const m = (lo + hi) >> 1; cum[m] <= len ? lo = m : hi = m; }
+  const seg = cum[hi] - cum[lo] || 1, f = (len - cum[lo]) / seg;
+  const a = pts[lo], b = pts[hi];
+  return [a[0] + (b[0]-a[0])*f, a[1] + (b[1]-a[1])*f, Math.atan2(b[1]-a[1], b[0]-a[0])];
+}
+function makeTrainEl(st){
+  const g = svgEl("g", { class: "train", tabindex: 0, role: "button" }, $("gTrains"));
+  svgEl("circle", { class: "hit", r: 9 }, g);
+  st.arrow = svgEl("path", { class: "arrow", d: "M5.2 0 L-3.6 -4.1 L-1.6 0 L-3.6 4.1 Z", fill: `var(--${st.t.line})`, "stroke-width": 1 }, g);
+  g.addEventListener("click", e => { e.stopPropagation(); select(st.key); });
+  g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); select(st.key); } });
+  g.style.opacity = 0; requestAnimationFrame(() => g.style.opacity = "");
+  return g;
+}
+function ingest(data){
+  const now = performance.now(), seen = new Set(), counts = {};
+  for (const line of LINES){
+    const list = (data.lines && data.lines[line]) || []; counts[line] = 0;
+    for (const t of list){
+      const key = line + ":" + t.run, st = trains.get(key);
+      const loc = locate(t, st && st.target ? st.target.ri : -1);
+      if (!loc) continue;
+      seen.add(key); counts[line]++;
+      if (!st){ const s = { key, t, cur: loc, from: loc, target: loc, t0: now, dur: 1 }; s.el = makeTrainEl(s); trains.set(key, s); continue; }
+      st.t = t;
+      // glide from where it's drawn now to the new real spot, finishing just before the next fix is due
+      const here = st.cur;
+      const sameRoute = here.ri === loc.ri, gap = Math.abs(loc.len - here.len);
+      if (sameRoute && gap < 260){ st.from = { ...here }; st.target = loc; st.t0 = now; st.dur = Math.min(POLL_MS - 2e3, 28e3); }
+      else { st.from = loc; st.target = loc; st.cur = loc; st.t0 = now; st.dur = 1; }   // a jump (branch change or long gap): snap, no fake path
+      st.el.classList.remove("stale"); st.missed = 0;
+    }
+  }
+  for (const [key, st] of trains){
+    if (seen.has(key)) continue;
+    st.missed = (st.missed || 0) + 1;
+    if (st.missed >= 2){ st.el.remove(); trains.delete(key); if (selected === key) closeCard(); }   // gone for a minute: remove
+    else st.el.classList.add("stale");
+  }
+  updateLegend(counts);
+  if (selected) fillCard();
+}
+function tick(now){
+  for (const st of trains.values()){
+    const f = Math.min(1, (now - st.t0) / st.dur), e = f < 1 ? f*f*(3 - 2*f) * .15 + f * .85 : 1;   // near-linear, soft ends
+    st.cur = { ri: st.target.ri, dir: st.target.dir, len: st.from.len + (st.target.len - st.from.len) * e };
+    const r = routesByLine[st.t.line][st.cur.ri];
+    const [x, y, ang] = pointAt(r, st.cur.len);
+    const a = ang + (st.cur.dir < 0 ? Math.PI : 0);
+    const s = 1.55 / Math.sqrt(view.k);                       // arrows grow only gently when zooming in
+    st.el.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${(a*180/Math.PI).toFixed(1)}) scale(${s.toFixed(3)})`);
+    st.x = x; st.y = y;
+  }
+  positionCard();
+  requestAnimationFrame(tick);
+}
+
+/* ---------------------------------------------- legend ---------------------------------------------- */
+const hidden = new Set((store.get("hidden") || "").split(",").filter(Boolean));
+function updateLegend(counts){
+  const box = $("lgList"); box.textContent = "";
+  for (const line of LINES){
+    const b = document.createElement("button"); b.className = "lg"; b.setAttribute("aria-pressed", !hidden.has(line));
+    b.title = hidden.has(line) ? `Show the ${line} Line` : `Hide the ${line} Line`;
+    const n = counts ? counts[line] : null;
+    b.innerHTML = `<span class="sw" style="background:var(--${line})"></span><span>${line}</span><span class="n${n === 0 ? " none" : ""}">${n == null ? "–" : n === 0 ? "no GPS now" : n}</span>`;
+    b.onclick = () => { hidden.has(line) ? hidden.delete(line) : hidden.add(line); store.set("hidden", [...hidden].join(",")); applyHidden(); updateLegend(counts); };
+    box.appendChild(b);
+  }
+}
+function applyHidden(){
+  for (const p of document.querySelectorAll("#gLines path")) p.style.opacity = hidden.has(p.dataset.line) ? .12 : "";
+  for (const st of trains.values()) st.el.style.display = hidden.has(st.t.line) ? "none" : "";
+}
+
+/* ---------------------------------------------- train card ---------------------------------------------- */
+const card = $("card");
+function select(key){ selected = key; for (const st of trains.values()) st.el.classList.toggle("sel", st.key === key);
+  card.classList.add("show"); requestAnimationFrame(() => card.classList.add("in")); fillCard(); positionCard(); }
+function closeCard(){ selected = null; for (const st of trains.values()) st.el.classList.remove("sel"); card.classList.remove("in", "show"); }
+$("cX").onclick = closeCard;
+svg.addEventListener("click", () => { if (dragMoved < 4) closeCard(); });
+addEventListener("keydown", e => { if (e.key === "Escape") closeCard(); });
+const ago = ms => { const s = Math.max(0, Math.round((Date.now() - ms) / 1000)); return s < 60 ? `${s} s ago` : `${Math.round(s/60)} min ago`; };
+function fillCard(){
+  const st = trains.get(selected); if (!st) return closeCard();
+  const t = st.t;
+  $("cChip").textContent = t.line.toUpperCase(); $("cChip").style.background = `var(--${t.line})`;
+  $("cChip").style.color = t.line === "Yellow" ? "#1B2C3A" : "#fff";
+  $("cRun").textContent = "Run " + t.run;
+  $("cTo").textContent = "to " + t.dest;
+  const mins = t.arrives_at ? Math.round((t.arrives_at - Date.now()) / 60e3) : null;
+  $("cNext").innerHTML = t.next_sta ? (t.approaching ? "Arriving at " : "Next: ") + `<b>${esc(short(t.next_sta))}</b>` + (!t.approaching && mins != null && mins >= 1 ? ` · ${mins} min` : "") : "";
+  $("cFlag").innerHTML = t.delayed ? `<span class="flag">CTA reports a delay</span>` : "";
+  $("cMeta").textContent = t.predicted_at ? "GPS fix " + ago(t.predicted_at) : "";
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+function positionCard(){
+  if (!selected || innerWidth <= 640) return;
+  const st = trains.get(selected); if (!st || st.x == null) return;
+  const x = st.x * view.k + view.tx, y = st.y * view.k + view.ty, w = 250, h = card.offsetHeight || 120;
+  let left = x + 16, top = y - h / 2;
+  if (left + w > innerWidth - 60) left = x - w - 16;
+  top = Math.max(64, Math.min(innerHeight - h - 12, top));
+  card.style.left = left + "px"; card.style.top = top + "px";
+}
+
+/* ---------------------------------------------- polling & status ---------------------------------------------- */
+function setStatus(){
+  const el = $("status"), age = feedTime ? Date.now() - feedTime : Infinity;
+  const n = [...trains.values()].length;
+  let s, txt;
+  if (!lastOk && failCount){ s = "off"; txt = "Can't reach CTA right now"; }
+  else if (!lastOk){ s = "wait"; txt = "Connecting…"; }
+  else if (failCount >= 2 || age > 3 * 60e3){ s = "off"; txt = `Offline · last data ${ago(feedTime)}`; }
+  else if (age > 90e3){ s = "slow"; txt = `Delayed · ${n} trains · ${ago(feedTime)}`; }
+  else { s = "live"; txt = `Live · ${n} trains · ${ago(feedTime)}`; }
+  el.dataset.s = s; $("statusText").textContent = txt;
+  for (const st of trains.values()) st.el.classList.toggle("stale", s === "off" || st.missed > 0);
+}
+async function poll(){
+  try {
+    const r = await fetch(WORKER + "/cta/positions", { cache: "no-store" });
+    const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || ("HTTP " + r.status));
+    lastData = d; lastOk = Date.now(); feedTime = d.feed_time || d.fetched_at; failCount = 0;
+    ingest(d);
+  } catch (e) { failCount++; console.warn("CTA positions:", e.message || e); }
+  setStatus();
+  setTimeout(poll, failCount ? Math.min(POLL_MS * failCount, 120e3) : POLL_MS);
+}
+setInterval(setStatus, 1000);
+
+/* ---------------------------------------------- start ---------------------------------------------- */
+(async function start(){
+  try {
+    const r = await fetch("data/layout.json", { cache: "no-cache" });
+    L = await r.json();
+  } catch (e) {
+    const m = $("msg"); m.style.display = "block"; m.textContent = "Couldn't load the map data. Open CTABot from its web address, not as a file.";
+    return;
+  }
+  // terminals: the first/last station of each line's routes, so their names get placed early
+  for (const rs of Object.values(L.routes)) for (const r of rs) for (const id of [r.stations[0], r.stations[r.stations.length-1]]){
+    const s = L.stations.find(x => x.id === id); if (s) s.term = 1; }
+  buildGeometry();
+  updateLegend(null);
+  applyHidden();
+  fit(false);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleLabels);
+  requestAnimationFrame(tick);
+  poll();
+})();
+</script>
+</body>
+</html>
