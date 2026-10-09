@@ -117,6 +117,8 @@ def main():
     # ---- 1. track between each pair of neighbouring stations, cut from CTA's real shapes
     geom = {}                                                  # frozenset(a,b) -> (a, b, pts from a to b)
     direct = defaultdict(set)                                  # frozenset(a,b) -> lines stopping at both, back to back
+    placed = []                                                # (line, stops, shape, where each stop sits along the shape)
+    on_track = defaultdict(list)                               # station -> the points on real track nearest to it
     for line, pats in d["lines"].items():
         for p in sorted(pats, key=lambda q: -q["trips"]):
             seq = p["stations"]
@@ -142,18 +144,36 @@ def main():
                     best = min((c for c in cands if c[0] <= m + 0.6), key=lambda c: c[1])
                 pos.append(best[1] if best and best[0] < 4.0 else None)   # >130 m off the shape: don't trust the shape here
                 if best and best[0] < 4.0:
-                    last = best[1]
+                    last = best[1]; on_track[sid].append((line, point_at(shape, best[1])))
+            placed.append((line, seq, shape, pos))
+    # CTA's station coordinates can sit 10-20 m off the track: each station is drawn ON its track instead
+    # (the average of where each line's track passes it), so the line runs straight through, no kink
+    # A station whose lines run on separate tracks (Roosevelt: Red subway, Green/Orange elevated) gets one point per
+    # track, so every line runs straight through its own platform; the page joins them into one station marker.
+    mean = lambda pts: (sum(q[0] for q in pts) / len(pts), sum(q[1] for q in pts) / len(pts))
+    T, ALIAS = {}, {}
+    for sid in list(P):
+        pts = on_track[sid]
+        if not pts:
+            T[sid] = P[sid]; continue
+        core = max(pts, key=lambda a: sum(dist(a[1], b[1]) <= 0.8 for b in pts))[1]
+        T[sid] = mean([q for _, q in pts if dist(q, core) <= 0.8])
+        for line in {l for l, q in pts if dist(q, core) > 0.8}:
+            a = f"{sid}@{line}"; ALIAS[(sid, line)] = a
+            T[a] = P[a] = mean([q for l, q in pts if l == line])
+    node = lambda sid, line: ALIAS.get((sid, line), sid)
+    for line, seq, shape, pos in placed:
             for i in range(len(seq) - 1):
-                a, b = seq[i], seq[i + 1]
+                a, b = node(seq[i], line), node(seq[i + 1], line)
                 if a == b:
                     continue
                 key = frozenset((a, b)); direct[key].add(line)
                 if key in geom:
                     continue
                 if pos[i] is not None and pos[i + 1] is not None and pos[i + 1] > pos[i] + 0.3:
-                    g = [P[a]] + cut(shape, pos[i], pos[i + 1])[1:-1] + [P[b]]   # ends snapped exactly onto the stations
+                    g = [T[a]] + cut(shape, pos[i], pos[i + 1])[1:-1] + [T[b]]
                 else:
-                    g = [P[a], P[b]]
+                    g = [T[a], T[b]]
                 geom[key] = (a, b, g)
 
     graph = defaultdict(set)
@@ -188,12 +208,13 @@ def main():
             for i, sid in enumerate(seq):
                 if sid in seq[:i]:
                     seq = seq[:i + 1]; break
-            drawn = [seq[0]]
-            for a, b in zip(seq, seq[1:]):
+            seq_n = [node(x, line) for x in seq]
+            drawn = [seq_n[0]]
+            for a, b in zip(seq_n, seq_n[1:]):
                 others = direct[frozenset((a, b))] - {line}
                 path = None if others else via_path(a, b)
                 drawn += path[1:] if path else [b]
-            rs.append({"stops": seq, "drawn": drawn})
+            rs.append({"stops": seq, "nodes": seq_n, "drawn": drawn})
         routes[line] = rs
 
     # ---- 3. pieces of track: start one per neighbouring pair, then split shared stretches at real junctions
@@ -202,7 +223,7 @@ def main():
     def new_edge(a, b, pts, lines):
         nid[0] += 1; E[nid[0]] = {"a": a, "b": b, "pts": [tuple(q) for q in pts], "lines": set(lines)}; return nid[0]
     chain = {}                                                   # frozenset(a,b) -> list of edge ids from a toward b (with a's id)
-    pos_of = dict(P)
+    pos_of = dict(T)
     for line, rs in routes.items():
         for r in rs:
             for a, b in zip(r["drawn"], r["drawn"][1:]):
@@ -315,17 +336,63 @@ def main():
                 for eid in chain[frozenset((a, b))][1]:
                     E[eid]["lines"].add(line)
     for e in E.values():
-        e["pts"] = rdp(e["pts"], 0.12)                          # ~4 m: drops points that add nothing
+        e["pts"] = rdp(e["pts"], 1.0)                           # ~30 m: irons out wobbles in the raw shapes, keeps real curves
 
     # ---- 4. which side of a bundle each line takes: one order, oriented clockwise round the Loop
     lc = (P[next(s for s in st if st[s]["name"] == "Clark/Lake")][0] + 7, P[next(s for s in st if st[s]["name"] == "Clark/Lake")][1] + 13)
+    # how far each node is from the Loop, along the track (so "outward" means the same thing all along a corridor)
+    import heapq
+    adj = defaultdict(list)
+    for e in E.values():
+        L_ = plen(e["pts"]); adj[e["a"]].append((e["b"], L_)); adj[e["b"]].append((e["a"], L_))
+    loop_nodes = [n for n in pos_of if dist(pos_of[n], lc) < 0.75 * K]
+    far = {n: 0.0 for n in loop_nodes}; heap = [(0.0, n) for n in loop_nodes]
+    while heap:
+        dd, u = heapq.heappop(heap)
+        if dd > far.get(u, 1e18): continue
+        for v, w in adj[u]:
+            if dd + w < far.get(v, 1e18): far[v] = dd + w; heapq.heappush(heap, (dd + w, v))
     def edge_flip(e):
+        if dist(pos_of[e["a"]], lc) >= 0.75 * K or dist(pos_of[e["b"]], lc) >= 0.75 * K:
+            fa, fb = far.get(e["a"], 0.0), far.get(e["b"], 0.0)
+            return fb < fa                                             # stored direction: away from the Loop
         (x0, y0), (x1, y1) = e["pts"][0], e["pts"][-1]
         mx, my = (x0 + x1) / 2 - lc[0], (y0 + y1) / 2 - lc[1]
         dx, dy = x1 - x0, y1 - y0
         r = math.hypot(mx, my) or 1
         tang, rad = (dx * -my + dy * mx) / r, (dx * mx + dy * my) / r
         return tang < 0 if abs(tang) > abs(rad) * .4 else rad < 0     # stored direction: clockwise, or outward
+
+    # ---- 4b. steady bundles: a line keeps the same sideways position from one piece of track to the next.
+    # Each piece gets a sideways shift (in line widths) for its whole bundle, chosen so that every line that
+    # carries on from one piece to the next stays put; a mild pull keeps bundles near their track's centre.
+    def canon_slot(e, line):
+        ls = [l for l in ORDER if l in e["lines"]]
+        return ls.index(line) - (len(ls) - 1) / 2
+    walks = []                                                   # per line route: [(edge id, +1 if travelled in stored direction)]
+    for line, rs in routes.items():
+        for r in rs:
+            w = []
+            for a, b in zip(r["drawn"], r["drawn"][1:]):
+                start, ids = chain[frozenset((a, b))]
+                cur = a
+                for eid in (ids if start == a else list(reversed(ids))):
+                    e = E[eid]
+                    w.append((eid, 1 if (e["a"] == cur) != edge_flip(e) else -1))
+                    cur = e["b"] if e["a"] == cur else e["a"]
+            walks.append((line, w))
+    cons = defaultdict(list)                                     # edge -> [(c_own, sign product, other edge, c_other)]
+    for line, w in walks:
+        for (e1, s1), (e2, s2) in zip(w, w[1:]):
+            if e1 == e2:
+                continue
+            c1, c2 = canon_slot(E[e1], line), canon_slot(E[e2], line)
+            cons[e1].append((c1, s1 * s2, e2, c2)); cons[e2].append((c2, s1 * s2, e1, c1))
+    shift = defaultdict(float)
+    for _ in range(400):
+        for eid, cs in cons.items():
+            tot = sum(sg * (c2 + shift[e2]) - c1 for c1, sg, e2, c2 in cs)
+            shift[eid] = max(-2.5, min(2.5, tot / (len(cs) + 0.3)))
 
     # ---- 5. output: each line's routes as one centre line with a side-by-side slot per piece
     lines_out, used = {}, set()
@@ -334,7 +401,7 @@ def main():
         out_routes = []
         for ri, r in enumerate(routes[line]):
             anc, slot, ds = [], [], []
-            stops = set(r["stops"])
+            stops = set(r["nodes"])
             drawn = r["drawn"]
             node = drawn[0]
             anc.append(pos_of[node])
@@ -349,7 +416,7 @@ def main():
                     pts = e["pts"] if e["a"] == cur else e["pts"][::-1]
                     fwd_canon = (e["a"] == cur) != edge_flip(e)
                     ls = [l for l in ORDER if l in e["lines"]]
-                    o = ls.index(line) - (len(ls) - 1) / 2
+                    o = ls.index(line) - (len(ls) - 1) / 2 + shift[eid]
                     for q in pts[1:]:
                         acc += dist(anc[-1], q); anc.append(q); slot.append(round(o if fwd_canon else -o, 2))
                     cur = e["b"] if e["a"] == cur else e["a"]
