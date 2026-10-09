@@ -16,7 +16,10 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pyshp
-      - run: mkdir -p data && python tools/build_geo.py
+      - name: Build data/geo.json
+        run: |
+          mkdir -p data
+          python tools/build_geo.py 2> err.txt || { echo "::error::$(tail -c 1500 err.txt | tr '\n' ' ')"; exit 1; }
       - name: Save it if it changed
         run: |
           git add data/geo.json
