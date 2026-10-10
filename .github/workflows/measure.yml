@@ -1,0 +1,28 @@
+# Temporary (branch 'measure' only): samples the live CTA feed for 20 minutes and saves it, to check accuracy.
+name: Measure CTA feed
+on:
+  workflow_dispatch:
+  push:
+    branches: [measure]
+    paths: ["measure/collect.py", ".github/workflows/measure.yml"]
+permissions:
+  contents: write
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - env:
+          TZ: America/Chicago
+        run: python measure/collect.py
+      - name: Save the samples
+        run: |
+          git add measure/*.json.gz
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "CTA feed samples"
+          git pull --rebase -q && git push
