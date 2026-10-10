@@ -1388,24 +1388,34 @@ function setFocus(key){
 }
 
 /* =====================================================================
-   TRAINS — real GPS fixes decide WHERE; interpolation only decides HOW
-   the marker gets there. It eases from where it was drawn to the newest
+   TRAINS — real reported positions decide WHERE (CTA's come from its signal system, not GPS);
+   interpolation only decides HOW the marker gets there. It eases from where it was drawn to the newest
    real fix over the real gap between fixes and stops there. It never
    runs ahead of the data. Direction comes only from two real fixes.
    ===================================================================== */
 const POLL=30000,STALE_AFTER=150000,DROP_AFTER=240000,FETCH_TIMEOUT=15000;
 let trains=[],live=new Map(),clockOffset=0,lastOkAt=0,lastFeedAt=0,everLoaded=false,fails=0,inflight=false,nextPollAt=0,pollTimer=0,lastError="";
 const serverNow=()=>Date.now()-clockOffset;
-function locate(L,lat,lon,prefRi){
-  const g=geo(lat,lon);let best=null;const per=[];
-  L.routes.forEach((r,ri)=>{const P=r.geoPts;let b=null;
-    for(let i=1;i<P.length;i++){const a=P[i-1],c=P[i],dx=c[0]-a[0],dy=c[1]-a[1],l2=dx*dx+dy*dy||1;
-      let t=((g[0]-a[0])*dx+(g[1]-a[1])*dy)/l2;t=Math.max(0,Math.min(1,t));
-      const d=(a[0]+dx*t-g[0])**2+(a[1]+dy*t-g[1])**2;if(!b||d<b.d)b={d,ri,s:(i-1)+t}}
-    per[ri]=b;if(!best||b.d<best.d)best=b});
+// distance along a route's track -> station index (2.5 = halfway between its 3rd and 4th stations)
+function sAtD(r,d){const ds=r.ds,n=ds.length;if(d<=ds[0])return 0;if(d>=ds[n-1])return n-1;
+  let i=1;while(i<n-1&&ds[i]<d)i++;return(i-1)+(d-ds[i-1])/((ds[i]-ds[i-1])||1)}
+/* Where a reported position sits on its line: on the real track. Where the same spot is on the route more
+   than once (the track into the Loop, a terminal loop), CTA's next station picks the pass: the one whose next
+   stop it is. Without one: the branch and place we already know. */
+function locate(L,lat,lon,prefRi,nextId,prevS){
+  const g=geo(lat,lon);let best=null;
+  L.routes.forEach((r,ri)=>{const A=r.anc,c=r.ac,pr=[];let mn=Infinity;
+    for(let i=1;i<A.length;i++){const a=A[i-1],b=A[i],dx=b[0]-a[0],dy=b[1]-a[1],l2=dx*dx+dy*dy;
+      const t=l2?Math.max(0,Math.min(1,((g[0]-a[0])*dx+(g[1]-a[1])*dy)/l2)):0;
+      const d2=(a[0]+dx*t-g[0])**2+(a[1]+dy*t-g[1])**2;pr.push([d2,c[i-1]+t*(c[i]-c[i-1])]);if(d2<mn)mn=d2}
+    const lim=(Math.sqrt(mn)+.6)**2,occ=[];                          // within ~20 m of the closest: the same physical spot
+    if(nextId)r.ids.forEach((id,k)=>{if(id===nextId)occ.push(r.ds[k])});
+    for(const[d2,d]of pr){if(d2>lim)continue;const s=sAtD(r,d);
+      let score=Math.sqrt(d2)*3+(ri===prefRi?0:1.5);
+      if(occ.length)score+=Math.min(...occ.map(x=>Math.abs(x-d)));
+      else score+=1e3+(prevS!=null&&ri===prefRi?Math.abs(s-prevS)*5:0);
+      if(!best||score<best.score)best={score,d:d2,ri,s}}});
   if(!best||best.d>MAX_MATCH_D2)return null;
-  // stay on the branch we already know unless the fix clearly belongs to another one
-  if(prefRi!=null&&per[prefRi]&&per[prefRi].d<=best.d+1.5)best=per[prefRi];
   return best}
 function curS(t,now){const k=Math.max(0,Math.min(1,(now-t.segT0)/t.segDur));return t.segFrom+(t.segTo-t.segFrom)*k}
 function poseAt(r,s){const n=r.ds.length;s=Math.max(0,Math.min(n-1,s));
@@ -1500,7 +1510,7 @@ function ingest(data){
       if(!isFinite(lat)||!isFinite(lon)||lat===0||lon===0){bad++;continue}
       let fix=+v.predicted_at;fix=isFinite(fix)&&fix>0?(fix<1e12?fix*1000:fix):serverNow();
       let t=live.get(id);
-      const loc=locate(L,lat,lon,t?t.ri:null);
+      const loc=locate(L,lat,lon,t?t.ri:null,v.next_sta_id,t?t.lastObsS:null);
       if(!loc){bad++;continue}                                              // fix isn't on this line (yard, bad data)
       seenAll.add(id);
       const hint=nextDir(L.routes[loc.ri],loc.s,v.next_sta_id);
@@ -1517,6 +1527,12 @@ function ingest(data){
       }else{
         t.run=runLabel(v);t.cta=v;t.lastSeen=Date.now();
         const moved=Math.abs(loc.s-t.lastObsS)>0.02||loc.ri!==t.ri;
+        // CTA now and then puts a train a few hundred metres back, then forward again (1-3% of moves, measured
+        // Oct 2026; often after placing it at its next station early). A train goes backwards on the map only if CTA
+        // keeps saying so for 3 reports in a row (about a minute and a half), or turns it around.
+        const exp=hint||t.dirSign;
+        if(moved&&loc.ri===t.ri&&exp&&(loc.s-t.lastObsS)*exp<-0.08){t.backN=(t.backN||0)+1;if(t.backN<3)continue}
+        t.backN=0;
         if(fix>t.updated||moved){
           const gap=fix>t.updated?Math.max(5000,Math.min(75000,fix-t.updated)):POLL;
           const cs=curS(t,now);
@@ -1780,7 +1796,7 @@ function renderCard(){
   const t=selected;if(!t)return;
   const r=t.L.routes[t.ri],s=t.lastObsS,n=r.st.length,v=t.cta||{};      // the latest REAL fix, never the animated position
   const near=Math.round(s),atStn=Math.abs(s-near)<0.12,nowMs=serverNow();
-  // where it is, from GPS
+  // where it is, from CTA's reported position (its signal system: the cars have no GPS)
   let nowRow="",gpsNext=null,lastRec=null;
   if(t.dirSign!==0){
     const lo=Math.floor(s),hi=Math.min(n-1,Math.ceil(s));
@@ -1808,7 +1824,7 @@ function renderCard(){
   const headline=v.dest?`to ${esc(v.dest)}`:"Destination not known";
   const age=serverNow()-t.updated;
   const foot=mode==="sim"?`<span>Simulated train, not real</span>`:t.stale?`<span class="wn">No new position for ${ago(age).replace(" ago","")}</span>`
-    :v.delayed?`<span class="wn">CTA reports a delay</span>`:`<span>GPS position ${ago(age)}</span>`;
+    :v.delayed?`<span class="wn">CTA reports a delay</span>`:`<span>Position from CTA's signals, ${ago(age)}</span>`;
   const sub=[trainLabel(t),r.branch].filter(Boolean).join(" · ");
   const keep=card.querySelector(".ups"),scroll=keep?keep.scrollTop:0;      // the card redraws every second: keep the list where you scrolled it
   card.innerHTML=
@@ -2467,7 +2483,7 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 if(GEO_ISSUES.length)console.warn("Map ordering issues:",GEO_ISSUES);
-window.__cta={ciSay,ciFacts,ciLines,get VO(){return VO},setCheckins,get ciOn(){return ciOn},FAV,openStationPop,renderBoard,get introOpen(){return introOpen},get actx(){return actx},get sndOn(){return sndOn},get sndMode(){return sndMode},setSndMode,get RADAR_C(){return RADAR_C},tickMood:()=>{sitAt=0;tickMood()},get moodSit(){return moodSit},liveSituation,get chase(){return chase},startRide:()=>startRide(performance.now()),get ROT(){return ROT},takeAlerts,get alerts(){return alerts},startSim,stopSim,get mode(){return mode},poll,LINES,STN,STATIONS,GEO_ISSUES,layoutLabels,ingest,get trains(){return trains},get vb(){return vb},set vb(v){vb=v},renderLabels,setFocus,selectTrain,fitAll,ARR,arrivalsTick,get FIT_W(){return FIT_W},updateMarkers,closeCard};
+window.__cta={ciSay,ciFacts,ciLines,get VO(){return VO},setCheckins,get ciOn(){return ciOn},FAV,openStationPop,renderBoard,get introOpen(){return introOpen},get actx(){return actx},get sndOn(){return sndOn},get sndMode(){return sndMode},setSndMode,get RADAR_C(){return RADAR_C},tickMood:()=>{sitAt=0;tickMood()},get moodSit(){return moodSit},liveSituation,get chase(){return chase},startRide:()=>startRide(performance.now()),get ROT(){return ROT},takeAlerts,get alerts(){return alerts},startSim,stopSim,get mode(){return mode},poll,LINES,STN,STATIONS,GEO_ISSUES,layoutLabels,ingest,get trains(){return trains},get vb(){return vb},set vb(v){vb=v},renderLabels,setFocus,selectTrain,fitAll,ARR,arrivalsTick,get FIT_W(){return FIT_W},updateMarkers,closeCard,locate,sAtD};
 applyStyle();tickHeader();poll();pollAlerts();requestAnimationFrame(frame);
 })();
 </script>

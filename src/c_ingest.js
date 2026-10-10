@@ -16,7 +16,7 @@ function ingest(data){
       if(!isFinite(lat)||!isFinite(lon)||lat===0||lon===0){bad++;continue}
       let fix=+v.predicted_at;fix=isFinite(fix)&&fix>0?(fix<1e12?fix*1000:fix):serverNow();
       let t=live.get(id);
-      const loc=locate(L,lat,lon,t?t.ri:null);
+      const loc=locate(L,lat,lon,t?t.ri:null,v.next_sta_id,t?t.lastObsS:null);
       if(!loc){bad++;continue}                                              // fix isn't on this line (yard, bad data)
       seenAll.add(id);
       const hint=nextDir(L.routes[loc.ri],loc.s,v.next_sta_id);
@@ -33,6 +33,12 @@ function ingest(data){
       }else{
         t.run=runLabel(v);t.cta=v;t.lastSeen=Date.now();
         const moved=Math.abs(loc.s-t.lastObsS)>0.02||loc.ri!==t.ri;
+        // CTA now and then puts a train a few hundred metres back, then forward again (1-3% of moves, measured
+        // Oct 2026; often after placing it at its next station early). A train goes backwards on the map only if CTA
+        // keeps saying so for 3 reports in a row (about a minute and a half), or turns it around.
+        const exp=hint||t.dirSign;
+        if(moved&&loc.ri===t.ri&&exp&&(loc.s-t.lastObsS)*exp<-0.08){t.backN=(t.backN||0)+1;if(t.backN<3)continue}
+        t.backN=0;
         if(fix>t.updated||moved){
           const gap=fix>t.updated?Math.max(5000,Math.min(75000,fix-t.updated)):POLL;
           const cs=curS(t,now);

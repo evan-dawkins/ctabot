@@ -10,7 +10,7 @@ function renderCard(){
   const t=selected;if(!t)return;
   const r=t.L.routes[t.ri],s=t.lastObsS,n=r.st.length,v=t.cta||{};      // the latest REAL fix, never the animated position
   const near=Math.round(s),atStn=Math.abs(s-near)<0.12,nowMs=serverNow();
-  // where it is, from GPS
+  // where it is, from CTA's reported position (its signal system: the cars have no GPS)
   let nowRow="",gpsNext=null,lastRec=null;
   if(t.dirSign!==0){
     const lo=Math.floor(s),hi=Math.min(n-1,Math.ceil(s));
@@ -38,7 +38,7 @@ function renderCard(){
   const headline=v.dest?`to ${esc(v.dest)}`:"Destination not known";
   const age=serverNow()-t.updated;
   const foot=mode==="sim"?`<span>Simulated train, not real</span>`:t.stale?`<span class="wn">No new position for ${ago(age).replace(" ago","")}</span>`
-    :v.delayed?`<span class="wn">CTA reports a delay</span>`:`<span>GPS position ${ago(age)}</span>`;
+    :v.delayed?`<span class="wn">CTA reports a delay</span>`:`<span>Position from CTA's signals, ${ago(age)}</span>`;
   const sub=[trainLabel(t),r.branch].filter(Boolean).join(" · ");
   const keep=card.querySelector(".ups"),scroll=keep?keep.scrollTop:0;      // the card redraws every second: keep the list where you scrolled it
   card.innerHTML=

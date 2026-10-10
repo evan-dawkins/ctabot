@@ -98,6 +98,44 @@ focus = rep(focus, '$("focusnote").innerHTML=key?`Showing <b>${LINES[key].name}<
 
 trains_s = L(1435, 1524)
 trains_s = rep(trains_s, "const POLL=30000,STALE_AFTER=95000,", "const POLL=30000,STALE_AFTER=150000,")
+# ---- CTA positions aren't GPS: they come from the signal system (measured Oct 2026: within ~2 m of the real track,
+#      each train refreshed about every 30 s). Trains are matched on the real track shape, and CTA's "next station"
+#      picks the right pass where a line runs over the same track twice (the Loop), instead of MetraBot's
+#      straight lines between stations (which put 0.4% of Loop-line trains 3-5 km away).
+trains_s = rep(trains_s, """   TRAINS — real GPS fixes decide WHERE; interpolation only decides HOW
+   the marker gets there.""", """   TRAINS — real reported positions decide WHERE (CTA's come from its signal system, not GPS);
+   interpolation only decides HOW the marker gets there.""")
+trains_s = rep(trains_s, """function locate(L,lat,lon,prefRi){
+  const g=geo(lat,lon);let best=null;const per=[];
+  L.routes.forEach((r,ri)=>{const P=r.geoPts;let b=null;
+    for(let i=1;i<P.length;i++){const a=P[i-1],c=P[i],dx=c[0]-a[0],dy=c[1]-a[1],l2=dx*dx+dy*dy||1;
+      let t=((g[0]-a[0])*dx+(g[1]-a[1])*dy)/l2;t=Math.max(0,Math.min(1,t));
+      const d=(a[0]+dx*t-g[0])**2+(a[1]+dy*t-g[1])**2;if(!b||d<b.d)b={d,ri,s:(i-1)+t}}
+    per[ri]=b;if(!best||b.d<best.d)best=b});
+  if(!best||best.d>MAX_MATCH_D2)return null;
+  // stay on the branch we already know unless the fix clearly belongs to another one
+  if(prefRi!=null&&per[prefRi]&&per[prefRi].d<=best.d+1.5)best=per[prefRi];
+  return best}""", """// distance along a route's track -> station index (2.5 = halfway between its 3rd and 4th stations)
+function sAtD(r,d){const ds=r.ds,n=ds.length;if(d<=ds[0])return 0;if(d>=ds[n-1])return n-1;
+  let i=1;while(i<n-1&&ds[i]<d)i++;return(i-1)+(d-ds[i-1])/((ds[i]-ds[i-1])||1)}
+/* Where a reported position sits on its line: on the real track. Where the same spot is on the route more
+   than once (the track into the Loop, a terminal loop), CTA's next station picks the pass: the one whose next
+   stop it is. Without one: the branch and place we already know. */
+function locate(L,lat,lon,prefRi,nextId,prevS){
+  const g=geo(lat,lon);let best=null;
+  L.routes.forEach((r,ri)=>{const A=r.anc,c=r.ac,pr=[];let mn=Infinity;
+    for(let i=1;i<A.length;i++){const a=A[i-1],b=A[i],dx=b[0]-a[0],dy=b[1]-a[1],l2=dx*dx+dy*dy;
+      const t=l2?Math.max(0,Math.min(1,((g[0]-a[0])*dx+(g[1]-a[1])*dy)/l2)):0;
+      const d2=(a[0]+dx*t-g[0])**2+(a[1]+dy*t-g[1])**2;pr.push([d2,c[i-1]+t*(c[i]-c[i-1])]);if(d2<mn)mn=d2}
+    const lim=(Math.sqrt(mn)+.6)**2,occ=[];                          // within ~20 m of the closest: the same physical spot
+    if(nextId)r.ids.forEach((id,k)=>{if(id===nextId)occ.push(r.ds[k])});
+    for(const[d2,d]of pr){if(d2>lim)continue;const s=sAtD(r,d);
+      let score=Math.sqrt(d2)*3+(ri===prefRi?0:1.5);
+      if(occ.length)score+=Math.min(...occ.map(x=>Math.abs(x-d)));
+      else score+=1e3+(prevS!=null&&ri===prefRi?Math.abs(s-prevS)*5:0);
+      if(!best||score<best.score)best={score,d:d2,ri,s}}});
+  if(!best||best.d>MAX_MATCH_D2)return null;
+  return best}""")
 trains_s = rep(trains_s, "\n".join(src[1472:1486]), blk("h_car.js"))   # the little trains: CTA 7000-series cars
 trains_s = rep(trains_s, """function poseAt(r,s){const n=r.ds.length;s=Math.max(0,Math.min(n-1,s));
   const i=Math.min(n-2,Math.floor(s)),t=s-i,d=r.ds[i]+(r.ds[i+1]-r.ds[i])*t,p=along(r.anc,r.ac,d);
@@ -211,7 +249,7 @@ main = rep(main, "  statusT-=dt;if(statusT<=0){statusT=1;refreshStatus();tickHea
 main = rep(main, "    const z=FIT_W/vb.w;document.documentElement.style.setProperty(\"--tw\",Math.max(2.4,Math.min(6.5,2.6+1.5*Math.log2(Math.max(1,z)))).toFixed(2)+\"px\");",
            "    document.documentElement.style.setProperty(\"--tw\",twPx().toFixed(2)+\"px\");")
 main = rep(main, 'if(GEO_ISSUES.length)console.warn("Schematic ordering issues:",GEO_ISSUES);', 'if(GEO_ISSUES.length)console.warn("Map ordering issues:",GEO_ISSUES);')
-main = re.sub(r"window\.__metra=\{.*?\};", "window.__cta={ciSay,ciFacts,ciLines,get VO(){return VO},setCheckins,get ciOn(){return ciOn},FAV,openStationPop,renderBoard,get introOpen(){return introOpen},get actx(){return actx},get sndOn(){return sndOn},get sndMode(){return sndMode},setSndMode,get RADAR_C(){return RADAR_C},tickMood:()=>{sitAt=0;tickMood()},get moodSit(){return moodSit},liveSituation,get chase(){return chase},startRide:()=>startRide(performance.now()),get ROT(){return ROT},takeAlerts,get alerts(){return alerts},startSim,stopSim,get mode(){return mode},poll,LINES,STN,STATIONS,GEO_ISSUES,layoutLabels,ingest,get trains(){return trains},get vb(){return vb},set vb(v){vb=v},renderLabels,setFocus,selectTrain,fitAll,ARR,arrivalsTick,get FIT_W(){return FIT_W},updateMarkers,closeCard};", main, flags=re.S)
+main = re.sub(r"window\.__metra=\{.*?\};", "window.__cta={ciSay,ciFacts,ciLines,get VO(){return VO},setCheckins,get ciOn(){return ciOn},FAV,openStationPop,renderBoard,get introOpen(){return introOpen},get actx(){return actx},get sndOn(){return sndOn},get sndMode(){return sndMode},setSndMode,get RADAR_C(){return RADAR_C},tickMood:()=>{sitAt=0;tickMood()},get moodSit(){return moodSit},liveSituation,get chase(){return chase},startRide:()=>startRide(performance.now()),get ROT(){return ROT},takeAlerts,get alerts(){return alerts},startSim,stopSim,get mode(){return mode},poll,LINES,STN,STATIONS,GEO_ISSUES,layoutLabels,ingest,get trains(){return trains},get vb(){return vb},set vb(v){vb=v},renderLabels,setFocus,selectTrain,fitAll,ARR,arrivalsTick,get FIT_W(){return FIT_W},updateMarkers,closeCard,locate,sAtD};", main, flags=re.S)
 main = rep(main, "  const sNow=serverNow(),k=vb.w/cw();",
            "  const sNow=serverNow(),k=vb.w/cw();\n"
            "  // trains shrink when you zoom out (so the whole map isn't buried under them) and reach full size ~3 zoom steps in\n"

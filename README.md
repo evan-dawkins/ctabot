@@ -9,7 +9,7 @@ An unofficial live map of every CTA 'L' train, built on [MetraBot](https://githu
 **Live:** https://evan-dawkins.github.io/ctabot/
 
 - **The map is real geography.** Every line follows CTA's own track shapes, over the real Lake Michigan shoreline, with Chicago's street grid and the suburbs the L runs through (Evanston, Wilmette, Skokie, Rosemont, Oak Park, Forest Park, Cicero). Nothing is enlarged: the Loop is its true size, so zoom in to read it. Lines that share track are drawn side by side, each keeping its own lane.
-- **Trains** come from CTA Train Tracker every 30 seconds. Each one is matched to its own line by GPS and glides only between real reported positions.
+- **Trains** come from CTA Train Tracker every 30 seconds. CTA's cars have no GPS: positions come from its signal system, sit within a few metres of the real track, and each train's is refreshed about every 30 seconds, so a train on the map is typically 30 to 60 seconds behind real life. Each one is placed on its own line's real track (CTA's "next station" tells apart the two passes where a line runs over the same track, as into and around the Loop) and glides only between real reported positions. A one-off report that jumps a train backwards is ignored unless CTA repeats it.
 - **Click a train** to see where it's headed and its next stop. **Click a station** to see CTA's arrival predictions, and ☆ to pin it to your board.
 - **The line bar** at the bottom shows one line on its own, and folds away.
 - **Sound:** brown noise, water, or sonar (with a radar sweep over the Loop).
