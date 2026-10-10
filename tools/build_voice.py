@@ -75,7 +75,7 @@ def pack(name, items):
     return idx
 
 
-DEST_EXTRA = {"y": ["Skokie"]}                        # CTA calls Dempster-Skokie just "Skokie" on its trains
+DEST_EXTRA = {"y": ["Skokie"], "blue": ["Jefferson Park"]}   # short forms CTA uses on its trains (Dempster-Skokie, short trips)
 N = json.load(open(os.path.join(ROOT, "data", "network.json")))
 # ---------- core: things every check-in can say ----------
 core = []

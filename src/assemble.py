@@ -349,8 +349,6 @@ out = rep(out, 'same?d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}):
 out = rep(out, "</style>", ':root[data-theme="light"] .st.late{color:#9A5300}\n</style>')
 out = rep(out, "--live:#1B8752;", "--live:#157346;")
 
-# ---- the voice check-ins aren't recorded yet: don't offer the switch
-out = rep(out, "</style>", "#sndmenu .sep,#ciTog{display:none!important}\n</style>")
 
 # ---- the station card: "Add to your board" right under the name (it used to be below every arrival, off-screen on phones)
 out = rep(out, '+stationSchedule(rec,3)\n    +`<button class="star" aria-pressed="${on}" ${full?"disabled":""}>${on?"★ On your board":"☆ Add to your board"}</button>`\n'

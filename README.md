@@ -13,7 +13,7 @@ An unofficial live map of every CTA 'L' train, built on [MetraBot](https://githu
 - **Click a train** to see where it's headed and its next stop. **Click a station** to see CTA's arrival predictions, and ☆ to pin it to your board.
 - **The line bar** at the bottom shows one line on its own, and folds away.
 - **Sound:** brown noise, water, or sonar (with a radar sweep over the Loop).
-- **Train of the moment:** leave it alone for 2 minutes (20 seconds on a phone, which stays awake while it rides) and the camera rides along with a live train (voice check-ins coming soon). Close the train's card (×) to stop.
+- **Train of the moment:** leave it alone for 2 minutes (20 seconds on a phone, which stays awake while it rides) and the camera rides along with a live train, and a calm voice checks in on it: the line, where it's headed, the next stop and how far off it is, from CTA's live data. Turn the voice off in the sound menu (Train check-ins). Close the train's card (×) to stop.
 - **O'Hare's Airport Transit System** (the free people mover between Terminals 1, 2, 3, 5 and the Multi-Modal Facility) appears when you zoom in at the airport, or click O'Hare. Its track and stations are real, but **its trains are simulated**: the airport publishes no live data, so they follow its published pattern (every 3–5 minutes, 24/7). They're drawn hollow, their cards say so, and they never count as L trains.
 - **Service alerts** from CTA, plus a live ticker under the title: live numbers off the map (trains running, the busiest line, trains around the Loop) alternating with what the L is doing at this hour.
 

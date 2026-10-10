@@ -603,7 +603,6 @@ button{touch-action:manipulation}
 .top,.console,.zoom{z-index:1}
 .sg:focus{outline:none}.sg:focus-visible .stnhit{fill:none;stroke:var(--ink);stroke-width:2px;vector-effect:non-scaling-stroke}
 :root[data-theme="light"] .st.late{color:#9A5300}
-#sndmenu .sep,#ciTog{display:none!important}
 @media (max-width:420px){#spop .arr .to,#board .arr .to{white-space:normal;overflow-wrap:anywhere;line-height:1.2}}
 .ats{display:none}
 .atscase{fill:none;stroke:var(--city);stroke-width:5px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
@@ -2223,7 +2222,7 @@ function ciLines(kind,f){
   if(kind==="start"){
     const v=Math.random()<.5?0:1;
     L.push({p:[["core",`op_${lk}_${v}`]],tx:`${v?"Let's ride along with":"Checking in on"} a ${f.t.L.name} train.`});
-    if(f.dest)L.push({p:[[lk,"to_"+vslug(f.dest)]],tx:`It's headed to ${f.dest}.`});
+    if(f.dest)L.push({p:[[lk,"to_"+vslug(shortName(f.dest))]],tx:`It's headed to ${shortName(f.dest)}.`});
     if(f.delayed)L.push({p:[["core","s_dly"]],tx:"CTA says it's running with a delay."});
     stop("nx","Next up,",f.next);
   }else if(kind==="mid"){

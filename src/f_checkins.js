@@ -17,7 +17,7 @@ function ciLines(kind,f){
   if(kind==="start"){
     const v=Math.random()<.5?0:1;
     L.push({p:[["core",`op_${lk}_${v}`]],tx:`${v?"Let's ride along with":"Checking in on"} a ${f.t.L.name} train.`});
-    if(f.dest)L.push({p:[[lk,"to_"+vslug(f.dest)]],tx:`It's headed to ${f.dest}.`});
+    if(f.dest)L.push({p:[[lk,"to_"+vslug(shortName(f.dest))]],tx:`It's headed to ${shortName(f.dest)}.`});
     if(f.delayed)L.push({p:[["core","s_dly"]],tx:"CTA says it's running with a delay."});
     stop("nx","Next up,",f.next);
   }else if(kind==="mid"){
