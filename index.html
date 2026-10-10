@@ -2110,8 +2110,7 @@ function chaseFrame(now,dt){
   if(rk!==worldRotKey){worldRotKey=rk;rk?world.setAttribute("transform",rk):world.removeAttribute("transform")}
   return true}
 // mouse moves, clicks, scrolls and keys never end a ride: only closing the train's card (×) does
-document.addEventListener("visibilitychange",()=>{if(!document.hidden||!chase)return;
-  const home=chase.phase!=="rest"&&chase.home;finishChase();if(home){Object.assign(vb,home);applyVB();updateMarkers()}});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden||!chase)return;const home=chase.phase!=="rest"&&chase.home;finishChase();if(home){Object.assign(vb,home);applyVB();updateMarkers()}});   // leaving mid-ride: straighten the map and zoom back out
 
 /* =====================================================================
    TRAIN CHECK-INS
