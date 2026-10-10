@@ -63,10 +63,12 @@ el("path",{class:"lake",d:LAKE},world);
 
 const trackG=el("g",{},world),stnG=el("g",{},world),trailG=el("g",{},world),trainG=el("g",{},world);
 const lineEls={};
-for(const key of ORDER){const L=LINES[key],g=el("g",{},trackG);
-  // each line: a thin casing in the land colour under its colour, so lines side by side never blur together
-  for(const r of L.routes){r.cel=el("path",{class:"track case"},g);r.el=el("path",{class:"track",stroke:L.color},g)}
-  lineEls[key]={track:g,stns:[]};}
+// every line's thin casing (in the land colour) goes in one layer UNDER all the colours, so a line drawn later
+// never paints over its neighbour's stripe: side by side, every colour shows in full (as on CTA's map)
+const caseG=el("g",{},trackG);
+for(const key of ORDER){const L=LINES[key],cg=el("g",{},caseG),g=el("g",{},trackG);
+  for(const r of L.routes){r.cel=el("path",{class:"track case"},cg);r.el=el("path",{class:"track",stroke:L.color},g)}
+  lineEls[key]={track:g,cases:cg,stns:[]};}
 const gRec=new WeakMap();
 for(const rec of STATIONS){
   const g=el("g",{class:"sg"},stnG);rec.g=g;
@@ -79,8 +81,11 @@ for(const rec of STATIONS){
 }
 // track width on screen, from zoom (the same rule MetraBot uses)
 function twPx(){const z=FIT_W/vb.w;return Math.max(2.4,Math.min(6.5,2.6+1.5*Math.log2(Math.max(1,z))))}
-// lines on shared track: their spacing on screen, never wider than a line (so a bundle reads as one band of stripes)
-function bundleGap(upp){return Math.min(twPx(),.25/upp)*upp}
+// lines on shared track: far out they sit at their real spacing (merging into one band); zoomed in they fan out
+// to a full line width each, side by side with a hairline between, like the stripes on CTA's map
+// (never more than ~27 m apart on the ground, so the outer stripes of a bundle still turn cleanly round its curves)
+function bundleGap(upp){const tw=twPx(),z=FIT_W/(upp*cw()),k=Math.max(0,Math.min(1,(z-1.6)/3));
+  return Math.min(.9,Math.max(Math.min(tw,.25/upp),(tw+.8)*k)*upp)}
 function placeNetwork(){
   const upp=vb.w/cw(),g=bundleGap(upp);
   for(const key of ORDER)for(const r of LINES[key].routes){offsetLine(r.anc,r.slot,g,r.off);

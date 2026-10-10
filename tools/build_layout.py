@@ -109,6 +109,120 @@ def rdp(pts, eps):
     return [p for p, k in zip(pts, keep) if k]
 
 
+LOOP_LINES = {"Brown", "Green", "Orange", "Pink", "Purple", "Blue"}   # the elevated Loop, and the Blue subway right under Lake St
+                                                              # (drawn alongside it there); not the Red Line's State St subway
+SNAP = 1.6                                                    # ~50 m: track this close to a Loop side is on it
+
+
+def straighten_loop(E, pos_of, T):
+    """The Loop runs straight along Lake, Wabash, Van Buren and Wells. CTA's shapes wobble a little there (a dip at
+    Clark/Lake, a slant on Wells): put the elevated track exactly on those four straight streets."""
+    sides = {"wells": ("x", ["40730", "40040"]), "wabash": ("x", ["41700", "40680"]),
+             "lake": ("y", ["40380"]), "vanburen": ("y", ["40160", "40850"])}
+    v = {}
+    for k, (ax, ids) in sides.items():
+        pts = [T[i] for i in ids if i in T]
+        if not pts:
+            print(f"::warning::Loop side {k}: stations not found, Loop not straightened"); return
+        v[k] = sum(q[0 if ax == "x" else 1] for q in pts) / len(pts)
+    x0, x1, y0, y1 = v["wells"] - 3, v["wabash"] + 3, v["lake"] - 3, v["vanburen"] + 3
+
+    def snap(q):
+        x, y = q
+        if not (x0 <= x <= x1 and y0 <= y <= y1):
+            return q
+        if abs(x - v["wells"]) < SNAP: x = v["wells"]
+        if abs(x - v["wabash"]) < SNAP: x = v["wabash"]
+        if abs(y - v["lake"]) < SNAP: y = v["lake"]
+        if abs(y - v["vanburen"]) < SNAP: y = v["vanburen"]
+        return (x, y)
+    loop_node = defaultdict(lambda: True)
+    for e in E.values():
+        if not e["lines"] <= LOOP_LINES:
+            loop_node[e["a"]] = loop_node[e["b"]] = False
+    for n in list(pos_of):
+        if loop_node[n]:
+            pos_of[n] = snap(pos_of[n])
+    moved = 0
+    for e in E.values():
+        if e["lines"] <= LOOP_LINES:
+            new = [snap(q) for q in e["pts"]]
+            moved += sum(1 for a, b in zip(new, e["pts"]) if a != b)
+            e["pts"] = new
+        e["pts"][0], e["pts"][-1] = pos_of[e["a"]], pos_of[e["b"]]
+        e["pts"] = rdp(e["pts"], 0.05)
+    print(f"Loop straightened: {moved} track points put on Lake/Wabash/Van Buren/Wells")
+
+
+SMOOTH_W = 5.0                                                # ~150 m: bends are rounded over about this far either side
+STEP = 0.25                                                   # ~8 m resampling while smoothing
+
+
+def rdp3(pts, eps):
+    """Ramer-Douglas-Peucker on (x, y, w): keeps a point where the line bends OR where its lane is changing."""
+    if len(pts) < 3:
+        return list(range(len(pts)))
+    keep = [0, len(pts) - 1]; stack = [(0, len(pts) - 1)]
+    while stack:
+        i, j = stack.pop()
+        a, b = pts[i], pts[j]
+        ab = [b[k] - a[k] for k in range(3)]; L2 = sum(v * v for v in ab)
+        best, bi = 0.0, -1
+        for m in range(i + 1, j):
+            q = pts[m]; aq = [q[k] - a[k] for k in range(3)]
+            t = 0 if L2 == 0 else max(0, min(1, sum(aq[k] * ab[k] for k in range(3)) / L2))
+            d = math.sqrt(sum((aq[k] - t * ab[k]) ** 2 for k in range(3)))
+            if d > best:
+                best, bi = d, m
+        if best > eps:
+            keep.append(bi); stack += [(i, bi), (bi, j)]
+    return sorted(set(keep))
+
+
+def smooth_route(anc, slot, stops):
+    """Rounds every bend into a smooth curve and eases every change of lane (as on CTA's map): the route is resampled
+    every ~8 m, each point (and its lane) averaged with its neighbours within ~100 m along the track, then thinned
+    again. The curve is part of the line's geometry, so trains run round it too. Stops are tracked by index."""
+    n = len(anc)
+    seg = [dist(anc[i], anc[i + 1]) for i in range(n - 1)]
+    cum = [0.0]
+    for L_ in seg:
+        cum.append(cum[-1] + L_)
+    total = cum[-1]
+    # resample: every STEP along the track, plus every original vertex (so stops land exactly on a sample)
+    ss = sorted(set([round(c, 4) for c in cum] + [round(k * STEP, 4) for k in range(int(total / STEP) + 1)]))
+    pts, sl, i = [], [], 0
+    for sv in ss:
+        while i < n - 2 and cum[i + 1] < sv:
+            i += 1
+        L_ = seg[i] or 1
+        t = max(0.0, min(1.0, (sv - cum[i]) / L_))
+        pts.append((anc[i][0] + (anc[i + 1][0] - anc[i][0]) * t, anc[i][1] + (anc[i + 1][1] - anc[i][1]) * t))
+        sl.append(slot[min(i, len(slot) - 1)])
+    idx_of = {round(c, 4): k for k, c in enumerate(ss)}
+    stop_k = [idx_of[round(cum[j], 4)] for j in stops]
+    # moving average along the track (window shrinks near the ends, so the ends stay put)
+    m = len(pts)
+    px = [0.0] + list(__import__("itertools").accumulate(q[0] for q in pts))
+    py = [0.0] + list(__import__("itertools").accumulate(q[1] for q in pts))
+    pw = [0.0] + list(__import__("itertools").accumulate(sl))
+    out, osl = [], []
+    from bisect import bisect_left, bisect_right
+    for k in range(m):
+        w = min(SMOOTH_W, ss[k], total - ss[k])
+        lo2 = bisect_left(ss, ss[k] - w - 1e-9); hi = bisect_right(ss, ss[k] + w + 1e-9) - 1
+        c = hi - lo2 + 1
+        out.append(((px[hi + 1] - px[lo2]) / c, (py[hi + 1] - py[lo2]) / c))
+        osl.append((pw[hi + 1] - pw[lo2]) / c)
+    # thin it out again, keeping bends, lane changes and every stop
+    keep = set(rdp3([(q[0], q[1], w * 2.0) for q, w in zip(out, osl)], 0.015)) | set(stop_k)
+    keep = sorted(keep)
+    pos = {k: j for j, k in enumerate(keep)}
+    new = [out[k] for k in keep]
+    nsl = [round((osl[a] + osl[b]) / 2, 2) for a, b in zip(keep, keep[1:])]
+    return new, nsl, [pos[k] for k in stop_k]
+
+
 def main():
     d = json.load(open("data/stations.json"))
     st = {s["id"]: s for s in d["stations"]}
@@ -343,6 +457,7 @@ def main():
                     E[eid]["lines"].add(line)
     for e in E.values():
         e["pts"] = rdp(e["pts"], 1.0)                           # ~30 m: irons out wobbles in the raw shapes, keeps real curves
+    straighten_loop(E, pos_of, T)
 
     # ---- 4. which side of a bundle each line takes: one order, oriented clockwise round the Loop
     lc = (P[next(s for s in st if st[s]["name"] == "Clark/Lake")][0] + 7, P[next(s for s in st if st[s]["name"] == "Clark/Lake")][1] + 13)
@@ -406,7 +521,7 @@ def main():
         key, name, color, api = KEYS[line]
         out_routes = []
         for ri, r in enumerate(routes[line]):
-            anc, slot, ds = [], [], []
+            anc, slot, ds, si = [], [], [], [0]
             stops = set(r["nodes"])
             drawn = r["drawn"]
             node = drawn[0]
@@ -427,7 +542,12 @@ def main():
                         acc += dist(anc[-1], q); anc.append(q); slot.append(round(o if fwd_canon else -o, 2))
                     cur = e["b"] if e["a"] == cur else e["a"]
                 if b in stops:
-                    ds.append(acc)
+                    ds.append(acc); si.append(len(anc) - 1)
+            anc, slot, si = smooth_route(anc, slot, si)
+            c = [0.0]
+            for q0, q1 in zip(anc, anc[1:]):
+                c.append(c[-1] + dist(q0, q1))
+            ds = [c[i] for i in si]
             ds_out = [round(x, 2) for x in ds]
             if len(ds_out) != len(r["stops"]):
                 raise SystemExit(f"{line}: stop count mismatch ({len(ds_out)} vs {len(r['stops'])})")

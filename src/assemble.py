@@ -399,6 +399,9 @@ out = rep(out, "</style>",
   "#spop .atsnote{margin-top:10px}\n"
   "</style>")
 
+# ---- the Loop, cleaned up: a dimmed line's casing dims with it (casings now sit in their own layer under the colours)
+out = rep(out, 'lineEls[k].track.classList.toggle("dim",!!key&&k!==key)}', 'lineEls[k].track.classList.toggle("dim",!!key&&k!==key);if(lineEls[k].cases)lineEls[k].cases.classList.toggle("dim",!!key&&k!==key)}')
+
 # whole-page wording and storage names
 out = out.replace('"metrabot.', '"ctabot.').replace("metrabot.favorites", "ctabot.favorites")
 left = [m.group(0) for m in re.finditer(r".{30}\bMetra\b.{30}", out.replace(blk("i_ats.js"), ""))]   # the ATS card names Metra's airport stop on purpose
