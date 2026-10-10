@@ -233,7 +233,7 @@ out = "\n".join([
     alerts, "",
     status, blk("g_card.js"), card_place, "",
     blk("d_times.js"), "",
-    fav, board, blk("e_mood.js"), mood_tail, "", chase_s, ci_head, blk("f_checkins.js"), ci_tail, main])
+    fav, board, blk("e_mood.js"), mood_tail, "", chase_s, ci_head, blk("f_checkins.js"), ci_tail, blk("i_ats.js"), main])
 # (leaving the tab mid-ride: the reset now comes from MetraBot itself)
 
 # ================================================================ CTABot-only fixes (Oct 2026 audit)
@@ -334,9 +334,36 @@ out = rep(out, '<meta name="theme-color" content="#1B2C3A">',
   '<meta property="og:type" content="website">\n<meta property="og:url" content="https://evan-dawkins.github.io/ctabot/">')
 out = rep(out, "function setTheme(t){\n  document.documentElement.dataset.theme=t;",
                "function setTheme(t){\n  document.documentElement.dataset.theme=t;{const m=document.querySelector('meta[name=\"theme-color\"]');if(m)m.content=t===\"light\"?\"#EEF2F5\":\"#1B2C3A\"}")
+# ================================================================ O'Hare's Airport Transit System (src/i_ats.js)
+# drawn and moved every frame (it shows only when you're zoomed in at the airport)
+out = rep(out, "  const chasing=chaseFrame(now,dt);\n  applyVB();", "  const chasing=chaseFrame(now,dt);\n  applyVB();atsFrame();")
+# taps: a direct hit on an ATS train or station first, then the L trains, then an ATS train near the finger
+out = rep(out, "  if(tapPick(tgt,e,touchy))return;\n", "  if(atsTap(tgt,e,touchy,0)||tapPick(tgt,e,touchy)||atsTap(tgt,e,touchy,1))return;\n")
+# its stations and trains open in the station card; clicking O'Hare zooms in on the airport
+out = rep(out, 'renderStationPop();placeStationPop();labelsDirty=true;arrivalsTick()}', 'renderStationPop();placeStationPop();labelsDirty=true;arrivalsTick();atsOnStation(rec)}')
+out = rep(out, "function renderStationPop(){const rec=spopRec;if(!rec)return;",
+  "function renderStationPop(){const rec=spopRec;if(!rec)return;\n"
+  "  if(rec.ats){const html=atsPopHTML(rec);if(html!==spopSig){spopSig=html;spop.innerHTML=html;labelsDirty=true;spop.querySelector(\".x\").onclick=closeStationPop}return}")
+out = rep(out, "if(spopRec)want.add(spopRec.id);", "if(spopRec&&!spopRec.ats)want.add(spopRec.id);")
+out = rep(out, "let x=px+18,y=py-24;if(x+w>W-12)x=px-18-w;", "let x=px+18,y=py-24;if(x+w>W-12)x=px-18-w;if(ATS&&spopRec.id===ATS.hub&&atsAlpha>.5)x=12;   // at the airport: out of the way, on the left")
+out = rep(out, "</style>",
+  ".ats{display:none}\n"
+  ".atscase{fill:none;stroke:var(--city);stroke-width:5px;vector-effect:non-scaling-stroke;stroke-linejoin:round}\n"
+  ".atstrk{fill:none;stroke-width:2.2px;vector-effect:non-scaling-stroke;stroke-linejoin:round}\n"
+  ".atsdot{fill:var(--bg)}.atshit{fill:transparent;cursor:pointer}.atss,.atst{cursor:pointer}\n"
+  ".atss:focus{outline:none}.atss:focus-visible .atsdot{stroke:var(--ink)}\n"
+  ".atsl{font-family:var(--sans);font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--bg);stroke-linejoin:round;pointer-events:none}\n"
+  ".atsnum{font-family:var(--sans);font-weight:700;pointer-events:none}.atsbadge{pointer-events:none}\n"
+  ".atsarrow{fill:var(--bg);stroke-width:1.8;stroke-linejoin:round}.atst.sel .atsarrow{fill:#FFD9D6}\n"
+  ".atscar{display:none}body.cute .atscar{display:inline}body.cute .atsarrow{display:none}\n"
+  "#spop .atsb{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-size:13px;font-weight:700;margin-right:7px;vertical-align:-2px}\n"
+  "#spop .atssub{font-size:12.5px;color:var(--muted);align-self:center;margin-left:4px}\n"
+  "#spop .atsnote{margin-top:10px}\n"
+  "</style>")
+
 # whole-page wording and storage names
 out = out.replace('"metrabot.', '"ctabot.').replace("metrabot.favorites", "ctabot.favorites")
-left = [m.group(0) for m in re.finditer(r".{30}\bMetra\b.{30}", out)]
+left = [m.group(0) for m in re.finditer(r".{30}\bMetra\b.{30}", out.replace(blk("i_ats.js"), ""))]   # the ATS card names Metra's airport stop on purpose
 if left:
     sys.exit("Metra wording left: " + " | ".join(left[:5]))
 open(os.path.join(F, "..", "index.html"), "w").write(out)

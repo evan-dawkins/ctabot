@@ -7,6 +7,7 @@
 | `engine.html` | A pinned copy of MetraBot's `index.html` (the shared map engine). |
 | `assemble.py` | Builds `../index.html`: takes the engine, swaps in the CTA blocks below, and applies CTA-only patches. |
 | `a_network.js` … `h_car.js` | CTA-specific code: network data, base map, live feed, arrivals, ticker, check-ins, train card, little trains. |
+| `i_ats.js` | O'Hare's Airport Transit System: drawn when zoomed in at the airport, with simulated trains (it has no live feed). |
 | `icon.svg`, `icon180.png` | The favicon and home-screen icon. |
 
 ## Build

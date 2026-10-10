@@ -2,7 +2,7 @@
 
 *Enjoy the ride.*
 
-An unofficial live map of every CTA 'L' train, built on [MetraBot](https://github.com/evan-dawkins/metrabot)'s engine. Real positions only: nothing is guessed.
+An unofficial live map of every CTA 'L' train, built on [MetraBot](https://github.com/evan-dawkins/metrabot)'s engine. Real positions only: nothing is guessed (the one exception, O'Hare's airport train, is clearly marked as simulated).
 
 **Not affiliated with the Chicago Transit Authority (CTA).**
 
@@ -14,6 +14,7 @@ An unofficial live map of every CTA 'L' train, built on [MetraBot](https://githu
 - **The line bar** at the bottom shows one line on its own, and folds away.
 - **Sound:** brown noise, water, or sonar (with a radar sweep over the Loop).
 - **Train of the moment:** leave it alone for 2 minutes (20 seconds on a phone, which stays awake while it rides) and the camera rides along with a live train (voice check-ins coming soon). Close the train's card (×) to stop.
+- **O'Hare's Airport Transit System** (the free people mover between Terminals 1, 2, 3, 5 and the Multi-Modal Facility) appears when you zoom in at the airport, or click O'Hare. Its track and stations are real, but **its trains are simulated**: the airport publishes no live data, so they follow its published pattern (every 3–5 minutes, 24/7). They're drawn hollow, their cards say so, and they never count as L trains.
 - **Service alerts** from CTA, plus a live ticker under the title: live numbers off the map (trains running, the busiest line, trains around the Loop) alternating with what the L is doing at this hour.
 
 ## How it's built
@@ -24,10 +25,11 @@ An unofficial live map of every CTA 'L' train, built on [MetraBot](https://githu
 | `src/` | The page's source: CTA code blocks plus a pinned copy of MetraBot's engine, put together by `src/assemble.py`. |
 | `tools/build_stations.py` | Downloads CTA's GTFS timetable and saves stations, stop patterns and track shapes (`data/stations.json`). |
 | `tools/build_geo.py` | Downloads the Census TIGER shoreline and town boundaries (`data/geo.json`). |
-| `tools/build_layout.py` | Builds the map from those two (`data/network.json`) and writes it into `index.html`. |
+| `tools/build_ats.py` | Downloads O'Hare's Airport Transit System track and stations from OpenStreetMap (`data/ats.json`). |
+| `tools/build_layout.py` | Builds the map from those (`data/network.json`) and writes it into `index.html`. |
 | `tools/build_voice.py` | Records the check-in voice with Kokoro, a free open-source voice (`voice/`). |
 | Cloudflare Worker | Shared with MetraBot (`metrabot/worker.js`, the `/cta/` routes). It holds the CTA key, so the key never reaches the page. |
 
-GitHub Actions rerun the station download every Monday, and the outline download whenever its builder changes. Both rebuild the map.
+GitHub Actions rerun the station download every Monday, and the outline and airport-train downloads whenever their builders change. Both rebuild the map.
 
-Not affiliated with the Chicago Transit Authority. Data provided by the CTA. Map outlines: US Census Bureau TIGER/Line.
+Not affiliated with the Chicago Transit Authority. Data provided by the CTA. Map outlines: US Census Bureau TIGER/Line. Airport Transit System track: © OpenStreetMap contributors (ODbL). The Airport Transit System is run by the Chicago Department of Aviation.
