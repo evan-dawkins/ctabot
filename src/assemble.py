@@ -98,6 +98,33 @@ focus = rep(focus, '$("focusnote").innerHTML=key?`Showing <b>${LINES[key].name}<
 
 trains_s = L(1435, 1524)
 trains_s = rep(trains_s, "const POLL=30000,STALE_AFTER=95000,", "const POLL=30000,STALE_AFTER=150000,")
+# ---- stops at stations: L trains stop at every station on their route. When the glide from one CTA report to the
+#      next passes a station, the train eases in, waits (up to 20 s, only as long as the gap allows at a believable
+#      speed) and eases out, and still reaches CTA's reported spot when the glide ends. Positions stay CTA's own.
+trains_s = rep(trains_s, "function curS(t,now){const k=Math.max(0,Math.min(1,(now-t.segT0)/t.segDur));return t.segFrom+(t.segTo-t.segFrom)*k}",
+"""const DWELL=20000,VAVG=0.5,DWELL_MIN=3000;   // ms at a stop; top average speed between stops (map units/s, ~15 m/s); shortest stop worth showing
+const easeIn=u=>u*u*(2-u),easeOut=u=>1-(1-u)*(1-u)*(1+u),easeBoth=u=>u*u*(3-2*u);
+function trackD(r,s){const n=r.ds.length,c=Math.max(0,Math.min(n-1,s)),i=Math.min(n-2,Math.floor(c));return r.ds[i]+(r.ds[i+1]-r.ds[i])*(c-i)}
+function glidePlan(t){
+  const key=t.segFrom+","+t.segTo+","+t.segT0+","+t.segDur+","+t.ri;if(t.planKey===key)return t.plan;t.planKey=key;
+  const a=t.segFrom,b=t.segTo,r=t.L.routes[t.ri],dir=b>a?1:-1,isStn=s=>Math.abs(s-Math.round(s))<.02;
+  let stops=[];
+  if(Math.abs(b-a)>1e-3)for(let k=dir>0?Math.floor(a+.02)+1:Math.ceil(a-.02)-1;dir>0?k<b-.02:k>b+.02;k+=dir)stops.push(k);   // stations strictly between
+  const dist=Math.abs(trackD(r,b)-trackD(r,a)),spare=Math.max(0,t.segDur-dist/VAVG*1000);
+  let end=isStn(b)&&Math.abs(b-a)>.02;                                  // CTA puts it at a station: it gets there, then waits
+  const nS=stops.length+(end?1:0);let dw=nS?Math.min(DWELL,spare/nS):0;
+  if(dw<DWELL_MIN){dw=0;stops=[];end=false}                             // no time to stop: it flows through
+  const pts=[a,...stops,b],moveT=t.segDur-dw*(stops.length+(end?1:0)),legs=[];let tt=0;
+  for(let i=1;i<pts.length;i++){const p0=pts[i-1],p1=pts[i],len=Math.abs(trackD(r,p1)-trackD(r,p0));
+    const st0=i>1||isStn(p0),st1=i<pts.length-1||isStn(p1),dur=dist>0?moveT*len/dist:moveT/(pts.length-1);
+    legs.push({s0:p0,s1:p1,t0:tt,dur,f:st0&&st1?easeBoth:st0?easeIn:st1?easeOut:u=>u});tt+=dur;
+    if(i<pts.length-1||end){legs.push({s0:p1,s1:p1,t0:tt,dur:dw,stop:true});tt+=dw}}
+  return t.plan=legs}
+function curS(t,now){const e=now-t.segT0;t.dwell=false;
+  if(e>=t.segDur||Math.abs(t.segTo-t.segFrom)<1e-4)return t.segTo;if(e<=0)return t.segFrom;
+  for(const l of glidePlan(t)){if(e<l.t0+l.dur||l===t.plan[t.plan.length-1]){if(l.stop){t.dwell=true;return l.s0}
+      const u=l.dur>0?Math.max(0,Math.min(1,(e-l.t0)/l.dur)):1;return l.s0+(l.s1-l.s0)*l.f(u)}}
+  return t.segTo}""")
 # ---- CTA positions aren't GPS: they come from the signal system (measured Oct 2026: within ~2 m of the real track,
 #      each train refreshed about every 30 s). Trains are matched on the real track shape, and CTA's "next station"
 #      picks the right pass where a line runs over the same track twice (the Loop), instead of MetraBot's
@@ -249,7 +276,7 @@ main = rep(main, "  statusT-=dt;if(statusT<=0){statusT=1;refreshStatus();tickHea
 main = rep(main, "    const z=FIT_W/vb.w;document.documentElement.style.setProperty(\"--tw\",Math.max(2.4,Math.min(6.5,2.6+1.5*Math.log2(Math.max(1,z)))).toFixed(2)+\"px\");",
            "    document.documentElement.style.setProperty(\"--tw\",twPx().toFixed(2)+\"px\");")
 main = rep(main, 'if(GEO_ISSUES.length)console.warn("Schematic ordering issues:",GEO_ISSUES);', 'if(GEO_ISSUES.length)console.warn("Map ordering issues:",GEO_ISSUES);')
-main = re.sub(r"window\.__metra=\{.*?\};", "window.__cta={ciSay,ciFacts,ciLines,get VO(){return VO},setCheckins,get ciOn(){return ciOn},FAV,openStationPop,renderBoard,get introOpen(){return introOpen},get actx(){return actx},get sndOn(){return sndOn},get sndMode(){return sndMode},setSndMode,get RADAR_C(){return RADAR_C},tickMood:()=>{sitAt=0;tickMood()},get moodSit(){return moodSit},liveSituation,get chase(){return chase},startRide:()=>startRide(performance.now()),get ROT(){return ROT},takeAlerts,get alerts(){return alerts},startSim,stopSim,get mode(){return mode},poll,LINES,STN,STATIONS,GEO_ISSUES,layoutLabels,ingest,get trains(){return trains},get vb(){return vb},set vb(v){vb=v},renderLabels,setFocus,selectTrain,fitAll,ARR,arrivalsTick,get FIT_W(){return FIT_W},updateMarkers,closeCard,locate,sAtD};", main, flags=re.S)
+main = re.sub(r"window\.__metra=\{.*?\};", "window.__cta={ciSay,ciFacts,ciLines,get VO(){return VO},setCheckins,get ciOn(){return ciOn},FAV,openStationPop,renderBoard,get introOpen(){return introOpen},get actx(){return actx},get sndOn(){return sndOn},get sndMode(){return sndMode},setSndMode,get RADAR_C(){return RADAR_C},tickMood:()=>{sitAt=0;tickMood()},get moodSit(){return moodSit},liveSituation,get chase(){return chase},startRide:()=>startRide(performance.now()),get ROT(){return ROT},takeAlerts,get alerts(){return alerts},startSim,stopSim,get mode(){return mode},poll,LINES,STN,STATIONS,GEO_ISSUES,layoutLabels,ingest,get trains(){return trains},get vb(){return vb},set vb(v){vb=v},renderLabels,setFocus,selectTrain,fitAll,ARR,arrivalsTick,get FIT_W(){return FIT_W},updateMarkers,closeCard,locate,sAtD,glidePlan,curS};", main, flags=re.S)
 main = rep(main, "  const sNow=serverNow(),k=vb.w/cw();",
            "  const sNow=serverNow(),k=vb.w/cw();\n"
            "  // trains shrink when you zoom out (so the whole map isn't buried under them) and reach full size ~3 zoom steps in\n"
@@ -396,6 +423,10 @@ out = rep(out, "</style>",
   "#spop .atssub{font-size:12.5px;color:var(--muted);align-self:center;margin-left:4px}\n"
   "#spop .atsnote{margin-top:10px}\n"
   "</style>")
+
+# ---- a train stopped at a station doesn't turn its wheels (cute style)
+out = rep(out, "const roll=known&&!stale&&now-t.segT0<t.segDur&&Math.abs(t.segTo-t.segFrom)>.01&&!reduceMotion();",
+               "const roll=known&&!stale&&now-t.segT0<t.segDur&&Math.abs(t.segTo-t.segFrom)>.01&&!t.dwell&&!reduceMotion();")
 
 # ---- the Loop, cleaned up: a dimmed line's casing dims with it (casings now sit in their own layer under the colours)
 out = rep(out, 'lineEls[k].track.classList.toggle("dim",!!key&&k!==key)}', 'lineEls[k].track.classList.toggle("dim",!!key&&k!==key);if(lineEls[k].cases)lineEls[k].cases.classList.toggle("dim",!!key&&k!==key)}')
