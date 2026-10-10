@@ -20,7 +20,8 @@ An unofficial live map of every CTA 'L' train, built on [MetraBot](https://githu
 
 | Piece | What it does |
 | --- | --- |
-| `index.html` | The whole page. The map data is baked in, so it also works opened as a file. |
+| `index.html` | The whole page. The map data is baked in, so it also works opened as a file. **Generated: edit `src/`, not this** (see `src/README.md`). |
+| `src/` | The page's source: CTA code blocks plus a pinned copy of MetraBot's engine, put together by `src/assemble.py`. |
 | `tools/build_stations.py` | Downloads CTA's GTFS timetable and saves stations, stop patterns and track shapes (`data/stations.json`). |
 | `tools/build_geo.py` | Downloads the Census TIGER shoreline and town boundaries (`data/geo.json`). |
 | `tools/build_layout.py` | Builds the map from those two (`data/network.json`) and writes it into `index.html`. |
