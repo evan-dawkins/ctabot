@@ -28,14 +28,14 @@ COSL = math.cos(math.radians(41.88))
 ORDER = ["Purple", "Brown", "Orange", "Pink", "Green", "Red", "Blue", "Yellow"]   # side-by-side order on shared track
 TOL = 0.9                                        # two tracks closer than this (~27 m) are the same track
 MIN_SHARED = 2.0                                 # ...for at least this long (~66 m) before it counts as shared
+# CTA colours; Brown and Purple lifted a little so they read on the dark theme too
 KEYS = {"Red": ("red", "Red Line", "#C60C30", "Red"), "Blue": ("blue", "Blue Line", "#00A1DE", "Blue"),
-        "Brown": ("brn", "Brown Line", "#62361B", "Brown"), "Green": ("g", "Green Line", "#009B3A", "Green"),
-        "Orange": ("org", "Orange Line", "#F9461C", "Orange"), "Purple": ("p", "Purple Line", "#522398", "Purple"),
+        "Brown": ("brn", "Brown Line", "#8A5A36", "Brown"), "Green": ("g", "Green Line", "#009B3A", "Green"),
+        "Orange": ("org", "Orange Line", "#F9461C", "Orange"), "Purple": ("p", "Purple Line", "#6A40C0", "Purple"),
         "Pink": ("pink", "Pink Line", "#E27EA6", "Pink"), "Yellow": ("y", "Yellow Line", "#F9E300", "Yellow")}
 BRANCH = {"Green": ["Ashland/63rd branch", "Cottage Grove branch"]}
-TOWN_LABELS = ["Evanston", "Skokie", "Wilmette", "Lincolnwood", "Oak Park", "Forest Park", "Cicero", "Berwyn",
-               "Rosemont", "Park Ridge", "Niles", "Evergreen Park", "River Forest", "Schiller Park", "Norridge",
-               "Harwood Heights", "Oak Lawn", "Morton Grove", "Des Plaines", "Elmwood Park", "Stickney", "Burbank"]
+# Only the suburbs the L actually runs through are drawn (plus Chicago itself), most important first
+TOWN_LABELS = ["Evanston", "Oak Park", "Skokie", "Forest Park", "Cicero", "Wilmette", "Rosemont"]
 
 
 def xy(lat, lon):
@@ -441,6 +441,8 @@ def main():
     lake = [ring(r, .25) for r in geo["lake"]]
     towns = []
     for pl in geo["places"]:
+        if pl["name"] != "Chicago" and pl["name"] not in TOWN_LABELS:
+            continue
         rings = [x for x in (ring(r, .5) for r in pl["rings"]) if len(x) >= 4]
         if not rings:
             continue

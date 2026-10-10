@@ -1,16 +1,20 @@
 # CTABot
 
+*Enjoy the ride.*
+
 An unofficial live map of every CTA 'L' train, built on [MetraBot](https://github.com/evan-dawkins/metrabot)'s engine. Real positions only: nothing is guessed.
+
+**Not affiliated with the Chicago Transit Authority (CTA).**
 
 **Live:** https://evan-dawkins.github.io/ctabot/
 
-- **The map is real geography.** Every line follows CTA's own track shapes, over the real Lake Michigan shoreline and town boundaries (Chicago lighter, the suburbs darker, Chicago's street grid inside the city). Nothing is enlarged: the Loop is its true size, so zoom in to read it. Lines that share track are drawn side by side.
+- **The map is real geography.** Every line follows CTA's own track shapes, over the real Lake Michigan shoreline, with Chicago's street grid and the suburbs the L runs through (Evanston, Wilmette, Skokie, Rosemont, Oak Park, Forest Park, Cicero). Nothing is enlarged: the Loop is its true size, so zoom in to read it. Lines that share track are drawn side by side, each keeping its own lane.
 - **Trains** come from CTA Train Tracker every 30 seconds. Each one is matched to its own line by GPS and glides only between real reported positions.
 - **Click a train** to see where it's headed and its next stop. **Click a station** to see CTA's arrival predictions, and ☆ to pin it to your board.
 - **The line bar** at the bottom shows one line on its own, and folds away.
 - **Sound:** brown noise, water, or sonar (with a radar sweep over the Loop).
-- **Train of the moment:** leave it alone for 2 minutes and the camera rides along with a live train, with a voice check-in. Close the train's card (×) to stop.
-- **Service alerts** from CTA, plus a live ticker under the title.
+- **Train of the moment:** leave it alone for 2 minutes and the camera rides along with a live train (voice check-ins coming soon). Close the train's card (×) to stop.
+- **Service alerts** from CTA, plus a live ticker under the title: live numbers off the map (trains running, the busiest line, trains around the Loop) alternating with what the L is doing at this hour.
 
 ## How it's built
 
