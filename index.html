@@ -1376,20 +1376,27 @@ function makeTrainVisual(L){
   const inner=el("g",{},g);
   const arrow=el("path",{class:"body arrow",d:"M12.5,0 L-7,8 L-3.2,0 L-7,-8 Z",fill:L.color},inner);
 
-  if(!window.__cg)window.__cg={};   // one shading gradient per line, shared by all its trains
-  const mix=(h,t,k)=>{const c=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),u=t==="w"?255:0;return"#"+c.map(v=>Math.round(v+(u-v)*k).toString(16).padStart(2,"0")).join("")};
-  const gid=(kind)=>{const id=kind+"-"+L.key;if(!window.__cg[id]){window.__cg[id]=1;
-    const gr=el("linearGradient",{id,x1:0,y1:0,x2:0,y2:1},defs);
-    const st=kind==="cs"?[[0,mix(L.color,"w",.45)],[.35,mix(L.color,"w",.12)],[.7,L.color],[1,mix(L.color,"b",.35)]]
-                        :[[0,mix(L.color,"b",.12)],[.32,L.color],[.5,mix(L.color,"w",.6)],[.68,L.color],[1,mix(L.color,"b",.18)]];
-    for(const[o,c]of st)el("stop",{offset:o,"stop-color":c},gr)}return`url(#${id})`};
-  const carFlip=el("g",{class:"car"},inner),cz=el("g",{},carFlip);   // seen from above, facing +x
-  el("rect",{x:-13.6,y:-3.6,width:29,height:9.2,rx:4.4,fill:"#000",opacity:.22},cz);                                   // shadow underneath
+  // A CTA 7000-series car, seen from above, facing +x: brushed stainless with ribbed sides, a blue cab end with a
+  // black windshield and pink-ringed headlights, and AC units on the roof. Real cars don't carry their line's colour;
+  // here a thin stripe down each side does, so the lines stay easy to tell apart.
+  if(!window.__cg){window.__cg=1;
+    const steel=el("linearGradient",{id:"cta-steel",x1:0,y1:0,x2:0,y2:1},defs);
+    for(const[o,c]of[[0,"#8E99A3"],[.18,"#D9DFE4"],[.5,"#F2F5F7"],[.82,"#C9D0D6"],[1,"#7F8A94"]])el("stop",{offset:o,"stop-color":c},steel);
+    const blue=el("linearGradient",{id:"cta-blue",x1:0,y1:0,x2:0,y2:1},defs);
+    for(const[o,c]of[[0,"#0B4FA8"],[.5,"#2F86E6"],[1,"#0A4596"]])el("stop",{offset:o,"stop-color":c},blue)}
+  const carFlip=el("g",{class:"car"},inner),cz=el("g",{},carFlip);
+  el("rect",{x:-13.6,y:-3.6,width:29,height:9.2,rx:3,fill:"#000",opacity:.22},cz);                                     // shadow underneath
   const cb=el("g",{class:"cb"},cz);
-  el("path",{d:"M15.5,0 L27,-4.2 L27,4.2 Z",fill:"#FFE7A3",opacity:.16},cb);                                         // headlight beam                                   // shadow, offset down-right
-  el("path",{d:"M-12.5,-4.6 L8,-4.6 Q14.6,-4.6 15.6,0 Q14.6,4.6 8,4.6 L-12.5,4.6 Q-14.6,4.6 -14.6,2.6 L-14.6,-2.6 Q-14.6,-4.6 -12.5,-4.6 Z",fill:gid("ct"),stroke:"var(--bg)","stroke-width":1.1,"stroke-linejoin":"round"},cb);
-  for(const x of[-10,-3.6,2.8])el("rect",{x,y:-1.2,width:4,height:2.4,rx:.7,fill:"#fff",opacity:.35},cb);            // roof units
-  el("path",{d:"M9.6,-3.3 Q13.3,-2.8 13.7,0 Q13.3,2.8 9.6,3.3",stroke:"#132029","stroke-width":1.5,fill:"none","stroke-linecap":"round",opacity:.85},cb);  // windshield
+  el("path",{d:"M15.5,0 L27,-4.2 L27,4.2 Z",fill:"#FFE7A3",opacity:.16},cb);                                         // headlight beam
+  el("path",{d:"M-13,-4.6 L12.4,-4.6 Q15.4,-4.6 15.6,-2.2 L15.6,2.2 Q15.4,4.6 12.4,4.6 L-13,4.6 Q-14.6,4.6 -14.6,3 L-14.6,-3 Q-14.6,-4.6 -13,-4.6 Z",
+    fill:"url(#cta-steel)",stroke:"var(--bg)","stroke-width":1.1,"stroke-linejoin":"round"},cb);                        // stainless body, squared off like the 7000s
+  for(const y of[-4.3,3.2])el("rect",{x:-13.2,y,width:23.4,height:1.1,rx:.55,fill:L.color},cb);                          // the line's colour, down each side
+  el("path",{d:"M-12.6,-2.9H9.4M-12.6,2.9H9.4",stroke:"#9AA5AF","stroke-width":.35,fill:"none"},cb);                     // ribbed stainless edges
+  for(const x of[-10.4,-1.6])el("rect",{x,y:-1.9,width:5.4,height:3.8,rx:.8,fill:"#6E7A85"},cb);                        // roof AC units
+  el("path",{d:"M-9.6,-.9h3.8M-9.6,.9h3.8M-.8,-.9h3.8M-.8,.9h3.8",stroke:"#9AA5AF","stroke-width":.35},cb);
+  el("path",{d:"M10.2,-4.6 L12.4,-4.6 Q15.4,-4.6 15.6,-2.2 L15.6,2.2 Q15.4,4.6 12.4,4.6 L10.2,4.6 Z",fill:"url(#cta-blue)"},cb);   // blue cab end
+  el("path",{d:"M13.2,-2.8 Q14.6,-2.4 14.7,0 Q14.6,2.4 13.2,2.8",stroke:"#0B1118","stroke-width":1.4,fill:"none","stroke-linecap":"round"},cb);  // windshield
+  for(const y of[-3.4,3.4])el("circle",{cx:14.8,cy:y,r:.75,fill:"#FF5A6E",stroke:"#FFC2CC","stroke-width":.35},cb);    // headlights
   const dot=el("circle",{class:"body",r:6.2,fill:L.color},g);
   el("circle",{class:"hit",r:18},g);
   // trail: a soft band in the line's colour with a bright core, both fading out behind the train
