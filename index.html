@@ -1747,12 +1747,12 @@ function renderCard(){
     nextRow=`<div class="row"><span class="kick2">${v.approaching?"Arriving":"Next"}</span><span class="v">${esc(stnName(nx))}</span>`
       +(tm?`<span class="t"><b>${v.approaching||m<=1?"Due":m+" min"}</b> ${fmtClock(tm/1000)}</span>`:"<span></span>")+`</div>`}
   else if(gpsNext)nextRow=`<div class="row"><span class="kick2">Next</span><span class="v">${esc(stnName(gpsNext))}</span><span></span></div>`;
-  // the rest of the run: every upcoming stop with its predicted time
+  // the next few stops with their predicted times
   let upRows="";
   if(mode!=="sim"&&t.run&&t.run.no){const f=FOLLOW.get(t.id);
     if(!f||Date.now()-f.at>(f.err?20000:30000))fetchFollow(t);
-    const list=f&&f.stops?f.stops.filter(e=>!e.arrives_at||e.arrives_at>nowMs-45000):[];
-    if(list.length)upRows=`<div class="ups"><span class="kick2 uh">Upcoming stops</span>`+list.map((e,i)=>{
+    const list=f&&f.stops?f.stops.filter(e=>!e.arrives_at||e.arrives_at>nowMs-45000).slice(0,4):[];      // just the next 4
+    if(list.length)upRows=`<div class="ups"><span class="kick2 uh">Next stops</span>`+list.map((e,i)=>{
       const rec=STN.get(e.next_sta_id),nm=rec?stnName(rec):shortName(e.station),tm=+e.arrives_at||0,m=tm?Math.round((tm-nowMs)/60000):null;
       const w=e.approaching||(m!=null&&m<=1)?"Due":m!=null?m+" min":"";
       return`<div class="row${e.scheduled?" pred":""}"><span class="kick2">${i===0?(e.approaching?"Arriving":"Next"):""}</span><span class="v">${esc(nm)}</span>`
