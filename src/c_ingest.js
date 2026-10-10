@@ -59,6 +59,7 @@ function ingest(data){
 async function poll(){
   clearTimeout(pollTimer);
   if(inflight)return;
+  if(document.hidden&&mode==="live"){nextPollAt=Date.now()+POLL;pollTimer=setTimeout(poll,POLL);return}   // tab in the background: don't ask (it catches up the moment you look)
   inflight=true;refreshStatus();const pollT0=performance.now();
   const ac=new AbortController(),to=setTimeout(()=>ac.abort(),FETCH_TIMEOUT);
   try{
@@ -71,15 +72,19 @@ async function poll(){
     if(mode==="sim"){liveBack=true}                 // live works again: offer to switch, don't mix it with simulated trains
     else{ingest(data);everLoaded=true}
     sonarPing();
+    if(fails&&alertsErr)pollAlerts();                // the relay is back: fetch alerts now instead of in up to 2 minutes
     fails=0;lastOkAt=Date.now();lastError="";
   }catch(e){fails++;lastError=e&&e.name==="AbortError"?"The feed took too long to answer":(e&&e.message)||"Network error"}
   finally{clearTimeout(to);inflight=false;radarLanded(pollT0);const wait=fails?Math.min(POLL,10000*fails):POLL;   // after a miss, try again sooner
     nextPollAt=Date.now()+wait;pollTimer=setTimeout(poll,wait);refreshStatus()}
 }
 // service alerts come from CTA's Customer Alerts feed (through the Worker), checked every 2 minutes
-let alertTimer=0;
+let alertTimer=0,alertsAt=0;
 async function pollAlerts(){clearTimeout(alertTimer);
+  if(document.hidden){alertTimer=setTimeout(pollAlerts,120000);return}
+  alertsAt=Date.now();
   try{const r=await fetch(WORKER_URL+"/cta/alerts",{cache:"no-store"});let d=null;try{d=await r.json()}catch(_){}
     if(d&&Array.isArray(d.alerts))takeAlerts({alerts:d.alerts});else takeAlerts({alerts_error:(d&&d.error)||"No answer"})}
   catch(e){takeAlerts({alerts_error:(e&&e.message)||"Network error"})}
   alertTimer=setTimeout(pollAlerts,120000)}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-alertsAt>120000)pollAlerts()});

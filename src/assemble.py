@@ -235,6 +235,105 @@ out = "\n".join([
     blk("d_times.js"), "",
     fav, board, blk("e_mood.js"), mood_tail, "", chase_s, ci_head, blk("f_checkins.js"), ci_tail, main])
 # (leaving the tab mid-ride: the reset now comes from MetraBot itself)
+
+# ================================================================ CTABot-only fixes (Oct 2026 audit)
+# ---- touch: a finger that starts on a train can still drag or pinch the map; a tap still picks the train.
+#      On a phone a tap covers a 22 px circle: one train in it is picked, several zoom in on them instead of guessing.
+out = rep(out, 'svg.addEventListener("pointerdown",e=>{if(e.button!==0||e.target.closest(".train"))return;',
+               'svg.addEventListener("pointerdown",e=>{if(e.button!==0)return;')
+out = rep(out, 'if(ptrs.size===1)drag={x:e.clientX,y:e.clientY,vb:{...vb},moved:false,target:e.target}});',
+               'if(ptrs.size===1)drag={x:e.clientX,y:e.clientY,vb:{...vb},moved:false,target:e.target,touch:e.pointerType!=="mouse"}});')
+out = rep(out, 'if(!drag)return;const wasClick=!drag.moved,tgt=drag.target;drag=null;',
+               'if(!drag)return;const wasClick=!drag.moved,tgt=drag.target,touchy=drag.touch;drag=null;')
+out = rep(out, '  const g=tgt&&tgt.closest&&tgt.closest("g"),rec=g&&gRec.get(g);',
+               '  if(tapPick(tgt,e,touchy))return;\n  const g=tgt&&tgt.closest&&tgt.closest("g"),rec=g&&gRec.get(g);')
+out = rep(out, "svg.addEventListener(\"pointerup\",endDrag);",
+  "let lastPick=0;\n"
+  "function tapPick(tgt,e,touchy){\n"
+  "  const R=touchy&&!rideCard()?22:0,x=e.clientX,y=e.clientY,own=tgt&&tgt.closest&&tgt.closest(\".train\"),ownT=own&&trains.find(t=>t.g===own);\n"
+  "  const near=[];if(R)for(const t of trains){if(t.gone||t.g.classList.contains(\"dim\"))continue;const r=t.g.getBoundingClientRect();if(!r.width)continue;\n"
+  "    const d=Math.hypot(r.x+r.width/2-x,r.y+r.height/2-y);if(d<=R)near.push([d,t])}\n"
+  "  near.sort((a,b)=>a[0]-b[0]);\n"
+  "  if(!ownT&&(!near.length||(tgt&&tgt.closest&&gRec.get(tgt.closest(\"g\")))))return false;   // a station right under the finger wins over a nearby train\n"
+  "  lastPick=performance.now();\n"
+  "  if(near.length>=2&&near[1][0]-near[0][0]<9&&vb.w>MIN_W*2.2&&!rideCard()){   // two trains equally under the finger: zoom in on them instead of guessing\n"
+  "    const p=toWorld(x,y),nw=Math.max(MIN_W,vb.w/2.6),k=nw/vb.w;stopFollowing();\n"
+  "    flyTo({x:p[0]-(p[0]-vb.x)*k,y:p[1]-(p[1]-vb.y)*k,w:nw,h:vb.h*k},380);return true}\n"
+  "  const t=ownT||near[0][1];hideTip();if(selected===t){if(!rideCard())closeCard();return true}selectTrain(t);return true}\n"
+  "svg.addEventListener(\"pointerup\",endDrag);")
+out = rep(out, 't.g.addEventListener("click",e=>{e.stopPropagation();pick()});',
+               't.g.addEventListener("click",e=>{e.stopPropagation();if(performance.now()-lastPick>500)pick()});   // the map already handled a real tap')
+# bigger touch targets, same look
+out = rep(out, "</style>",
+  "@media (pointer:coarse){#helpBtn,.ibtn,#card .x,.fl{position:relative}\n"
+  "  #helpBtn::after,.ibtn::after{content:\"\";position:absolute;inset:-8px -3px}\n"
+  "  #card .x::after,#spop .x::after{content:\"\";position:absolute;inset:-11px}\n"
+  "  .fl::after{content:\"\";position:absolute;inset:-10px -4px}}\n"
+  "</style>")
+# ---- during a ride: + and − zoom the ride itself, and \"show the whole network\" ends it (they did nothing before)
+ride_on = '(chase&&(chase.phase==="in"||chase.phase==="ride"))'
+out = rep(out, "w=Math.max(MIN_W*3,FIT_W/14)", "w=Math.max(MIN_W,Math.min(maxW(),Math.max(MIN_W*3,FIT_W/14)*(chase&&chase.zf||1)))")
+out = rep(out, "function zoomBy(f){", f"function zoomBy(f){{if{ride_on}{{chase.zf=Math.max(.3,Math.min(6,(chase.zf||1)*f));return}}")
+out = rep(out, "function zoomAround(f,mx,my){camAnim=null;", f"function zoomAround(f,mx,my){{if{ride_on}{{chase.zf=Math.max(.3,Math.min(6,(chase.zf||1)*f));return}}camAnim=null;")
+out = rep(out, "const d=Math.hypot(a.x-b.x,a.y-b.y)||1,nw=Math.max(MIN_W,Math.min(maxW(),pinch.vb0.w*pinch.d0/d)),k=nw/pinch.vb0.w;",
+               f"const d=Math.hypot(a.x-b.x,a.y-b.y)||1;if{ride_on}{{if(pinch.zf0==null)pinch.zf0=chase.zf||1;chase.zf=Math.max(.3,Math.min(6,pinch.zf0*pinch.d0/d));return}}\n"
+               "    const nw=Math.max(MIN_W,Math.min(maxW(),pinch.vb0.w*pinch.d0/d)),k=nw/pinch.vb0.w;")
+out = rep(out, "function resetView(){stopFollowing();flyTo(fitAll())}",
+               f"function resetView(){{if{ride_on}{{chase.stop=true;endChase(performance.now(),false);return}}stopFollowing();flyTo(fitAll())}}")
+# a ride that ended on its own used to start the next one 25 s later even if you were using the map by then
+out = rep(out, 'if(chase.phase==="rest"){if(e>CH.REST&&!chaseBusy()){chase.home=fitAll();startRide(now)}return false}',
+               'if(chase.phase==="rest"){if(Date.now()-lastInput<(isTouch()?PHONE_IDLE:CH.IDLE)){wakeOff();chase=null;return false}   // you came back: wait for idle again\n'
+               '    if(e>CH.REST&&!chaseBusy()){chase.home=fitAll();startRide(now)}return false}')
+
+# ---- keyboard and screen readers: the controls come first in tab order (the map used to put 50+ trains ahead
+#      of them), stations can be reached and opened from the keyboard, and trains read naturally
+_stage = '<div id="stage">\n  <svg id="map" role="group" aria-label="Map of the CTA L with live train positions"></svg>\n  <svg id="labels" aria-hidden="true"></svg>\n</div>\n<div id="horizon"></div>\n'
+out = rep(out, _stage, "")
+out = rep(out, '<div id="card"', _stage + '<div id="card"')
+out = rep(out, "</style>", ".top,.console,.zoom{z-index:1}\n.sg:focus{outline:none}.sg:focus-visible .stnhit{fill:none;stroke:var(--ink);stroke-width:2px;vector-effect:non-scaling-stroke}\n</style>")
+out = rep(out, 'rec.hit=el("rect",{class:"stnhit"},g);gRec.set(g,rec);',
+               'rec.hit=el("rect",{class:"stnhit",rx:4},g);gRec.set(g,rec);\n'
+               '  g.setAttribute("tabindex","0");g.setAttribute("role","button");\n'
+               '  g.setAttribute("aria-label",`${rec.full} station, ${ORDER.filter(k=>rec.lines.has(k)).map(k=>LINES[k].name).join(", ")}. Press Enter for arrivals.`);\n'
+               '  g.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openStationPop(rec)}});')
+out = rep(out, 'const a=`${t.L.name} line${trainLabel(t)?", "+trainLabel(t).toLowerCase():""}, ${dirText(t).toLowerCase()}',
+               'const a=`${t.L.name} train${trainLabel(t)?", "+trainLabel(t).toLowerCase():""}, ${dirText(t)}')
+
+# ---- times are Chicago time wherever you are (the ticker already was)
+out = rep(out, 'const fmtClock=sec=>new Date(sec*1000).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});',
+               'const fmtClock=sec=>new Date(sec*1000).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",timeZone:"America/Chicago"});')
+out = rep(out, '$("clock").textContent=now.toLocaleTimeString([],{hour:"numeric",minute:"2-digit",second:"2-digit"});',
+               '$("clock").textContent=now.toLocaleTimeString([],{hour:"numeric",minute:"2-digit",second:"2-digit",timeZone:"America/Chicago"});$("clock").title="Chicago time";')
+out = rep(out, 'same?d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}):d.toLocaleDateString([],{month:"short",day:"numeric"})',
+               'same?d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit",timeZone:"America/Chicago"}):d.toLocaleDateString([],{month:"short",day:"numeric",timeZone:"America/Chicago"})')
+
+# ---- readable colours: "Delayed" in light mode, and the green "Live"
+out = rep(out, "</style>", ':root[data-theme="light"] .st.late{color:#9A5300}\n</style>')
+out = rep(out, "--live:#1B8752;", "--live:#157346;")
+
+# ---- the voice check-ins aren't recorded yet: don't offer the switch
+out = rep(out, "</style>", "#sndmenu .sep,#ciTog{display:none!important}\n</style>")
+
+# ---- the station card: "Add to your board" right under the name (it used to be below every arrival, off-screen on phones)
+out = rep(out, '+stationSchedule(rec,3)\n    +`<button class="star" aria-pressed="${on}" ${full?"disabled":""}>${on?"★ On your board":"☆ Add to your board"}</button>`\n'
+               '    +(full?`<div class="note">Your board holds ${FAV_MAX} stations. Remove one to add this.</div>`:on?`<div class="note">Click again to remove it.</div>`:"");',
+               '+`<button class="star" aria-pressed="${on}" ${full?"disabled":""}>${on?"★ On your board":"☆ Add to your board"}</button>`\n'
+               '    +(full?`<div class="note">Your board holds ${FAV_MAX} stations. Remove one to add this.</div>`:on?`<div class="note">Click again to remove it.</div>`:"")\n'
+               '    +stationSchedule(rec,3);')
+out = rep(out, "</style>", "@media (max-width:420px){#spop .arr .to,#board .arr .to{white-space:normal;overflow-wrap:anywhere;line-height:1.2}}\n</style>")
+
+# ---- lake water: half as many glints, updated half as often (it was a quarter of the page's idle CPU)
+out = rep(out, "steps(48)", "steps(24)")
+
+# ---- link previews, and the browser bar follows the theme
+out = rep(out, '<meta name="theme-color" content="#1B2C3A">',
+  '<meta name="theme-color" content="#1B2C3A">\n'
+  '<meta name="description" content="Unofficial live map of every CTA \'L\' train in Chicago. Enjoy the ride.">\n'
+  '<meta property="og:title" content="CTABot">\n'
+  '<meta property="og:description" content="Unofficial live map of every CTA \'L\' train in Chicago. Enjoy the ride.">\n'
+  '<meta property="og:type" content="website">\n<meta property="og:url" content="https://evan-dawkins.github.io/ctabot/">')
+out = rep(out, "function setTheme(t){\n  document.documentElement.dataset.theme=t;",
+               "function setTheme(t){\n  document.documentElement.dataset.theme=t;{const m=document.querySelector('meta[name=\"theme-color\"]');if(m)m.content=t===\"light\"?\"#EEF2F5\":\"#1B2C3A\"}")
 # whole-page wording and storage names
 out = out.replace('"metrabot.', '"ctabot.').replace("metrabot.favorites", "ctabot.favorites")
 left = [m.group(0) for m in re.finditer(r".{30}\bMetra\b.{30}", out)]

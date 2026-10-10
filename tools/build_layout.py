@@ -119,6 +119,7 @@ def main():
     direct = defaultdict(set)                                  # frozenset(a,b) -> lines stopping at both, back to back
     placed = []                                                # (line, stops, shape, where each stop sits along the shape)
     on_track = defaultdict(list)                               # station -> the points on real track nearest to it
+    offshape = []                                              # (line, station) more than 130 m from CTA's own track shape
     for line, pats in d["lines"].items():
         for p in sorted(pats, key=lambda q: -q["trips"]):
             seq = p["stations"]
@@ -143,9 +144,14 @@ def main():
                     m = min(c[0] for c in cands)
                     best = min((c for c in cands if c[0] <= m + 0.6), key=lambda c: c[1])
                 pos.append(best[1] if best and best[0] < 4.0 else None)   # >130 m off the shape: don't trust the shape here
+                if not (best and best[0] < 4.0) and len(shape) >= 2:
+                    offshape.append((line, sid))
                 if best and best[0] < 4.0:
                     last = best[1]; on_track[sid].append((line, point_at(shape, best[1])))
             placed.append((line, seq, shape, pos))
+    # a station far from its line's track shape gets a straight line instead of real track: say so in the Actions log
+    for line, sid in sorted(set(offshape)):
+        print(f"::warning::{line}: {st[sid]['name']} ({sid}) is over 130 m from CTA's track shape, so it's joined with a straight line")
     # CTA's station coordinates can sit 10-20 m off the track: each station is drawn ON its track instead
     # (the average of where each line's track passes it), so the line runs straight through, no kink
     # A station whose lines run on separate tracks (Roosevelt: Red subway, Green/Orange elevated) gets one point per

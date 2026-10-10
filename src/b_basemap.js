@@ -43,7 +43,7 @@ el("path",{class:"lake",d:LAKE},world);
     let t=((x-a[0])*dx+(y-a[1])*dy)/l2;t=Math.max(0,Math.min(1,t));m=Math.min(m,Math.hypot(a[0]+dx*t-x,a[1]+dy*t-y))}return m};
   const cp=el("clipPath",{id:"lakeclip"},defs);el("path",{d:LAKE},cp);
   const g=el("g",{class:"water","clip-path":"url(#lakeclip)","aria-hidden":"true"},world);
-  const CW=170,CH=125,X0=Math.min(...poly.map(p=>p[0]));
+  const CW=240,CH=176,X0=Math.min(...poly.map(p=>p[0]));
   for(let cy=BOX.y0-1100;cy<BOX.y1+1100;cy+=CH)for(let cx=X0;cx<BOX.x1+1600;cx+=CW){
     const x=cx+rnd()*CW,y=cy+rnd()*CH;
     if(!inside(x,y)||!inside(x+50,y)||edge(x,y)<18||edge(x+50,y)<18)continue;
