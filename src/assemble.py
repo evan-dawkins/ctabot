@@ -61,7 +61,7 @@ head = rep(head, ".train .glow{opacity:.15}", ".train .glow{opacity:0}")
 head = rep(head, ".city{fill:var(--city)}", ".city{fill:var(--city)}\n.track.case{stroke:var(--city);stroke-width:calc(var(--tw) + 1.6px)}")
 # ---- not affiliated, in the welcome guide
 head = rep(head, "  </ul>\n  <div class=\"foot\">", "  </ul>\n  <p class=\"nota\">Not affiliated with the Chicago Transit Authority (CTA). Train positions and arrival times come from CTA's public Train Tracker data.</p>\n  <div class=\"foot\">")
-head = rep(head, "#card .ft .wn{color:var(--warn)}", "#card .ft .wn{color:var(--warn)}\n#card .ups{border-top:1px solid var(--edge);padding:7px 12px 8px;display:grid;gap:5px;max-height:214px;overflow-y:auto;overscroll-behavior:contain}\n#card .ups .uh{margin-bottom:1px}\n#card .ups .row{grid-template-columns:44px 1fr auto;gap:6px}\n#card .ups .row .v{white-space:normal;overflow-wrap:anywhere;line-height:1.2}\n#card .ups .row.pred{opacity:.55}")
+head = rep(head, "#card .ft .wn{color:var(--warn)}", "#card .ft .wn{color:var(--warn)}\n#card .ups{border-top:1px solid var(--edge);padding:7px 12px 8px;display:grid;gap:5px;max-height:214px;overflow-y:auto;overscroll-behavior:contain}\n#card .ups .uh{margin-bottom:1px}\n#card .ups .row{grid-template-columns:66px 1fr auto;gap:6px}\n#card .ups .row .v{white-space:normal;overflow-wrap:anywhere;line-height:1.2}\n#card .ups .row.pred{opacity:.55}")
 head = rep(head, "#intro .foot{display:flex;", "#intro .nota{font-size:12.5px;line-height:1.4;color:var(--muted);margin:0 0 12px}\n#intro .foot{display:flex;")
 if "Metra" in head.replace("MetraBot", ""):
     sys.exit("Metra wording left in the page markup: " + re.search(r".{40}Metra.{40}", head).group(0))
@@ -419,6 +419,10 @@ out = rep(out, "</style>",
   "#spop .atssub{font-size:12.5px;color:var(--muted);align-self:center;margin-left:4px}\n"
   "#spop .atsnote{margin-top:10px}\n"
   "</style>")
+
+# ---- train card: "Arriving" (the widest label) fits beside the station name in both lists
+out = rep(out, "#card .row{display:grid;grid-template-columns:50px 1fr auto;gap:8px;align-items:baseline}",
+               "#card .row{display:grid;grid-template-columns:66px 1fr auto;gap:8px;align-items:baseline}")
 
 # ---- check-ins: shorter rides (50 s), and they carry on in a background tab (same edits as MetraBot)
 exec(open(os.path.join(F, "bgvoice.py")).read())
