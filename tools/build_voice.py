@@ -14,6 +14,8 @@ import json, os, re, subprocess, sys, tempfile
 import numpy as np, soundfile as sf
 from num2words import num2words
 from kokoro_onnx import Kokoro
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pronounce import needs_fix, phonemes   # Chicago pronunciations (Cicero, Ogilvie, ...)
 
 MODEL = sys.argv[1]
 ONLY = sys.argv[2].split(",") if len(sys.argv) > 2 else None   # re-record just these lines (keeps the rest)
@@ -50,7 +52,10 @@ def say(label):
 
 
 def render(text):
-    a, sr = k.create(text, voice=VOICE, speed=SPEED, lang="en-us")
+    if needs_fix(text):
+        a, sr = k.create(phonemes(k, text), voice=VOICE, speed=SPEED, lang="en-us", is_phonemes=True)
+    else:
+        a, sr = k.create(text, voice=VOICE, speed=SPEED, lang="en-us")
     nz = np.where(np.abs(a) > 0.008)[0]
     a = a[max(0, nz[0] - int(sr * .02)):nz[-1] + int(sr * .06)] if len(nz) else a
     rms = np.sqrt(np.mean(a ** 2)) or 1
