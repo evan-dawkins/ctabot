@@ -345,10 +345,6 @@ out = rep(out, "const d=Math.hypot(a.x-b.x,a.y-b.y)||1,nw=Math.max(MIN_W,Math.mi
                "    const nw=Math.max(MIN_W,Math.min(maxW(),pinch.vb0.w*pinch.d0/d)),k=nw/pinch.vb0.w;")
 out = rep(out, "function resetView(){stopFollowing();flyTo(fitAll())}",
                f"function resetView(){{if{ride_on}{{chase.stop=true;endChase(performance.now(),false);return}}stopFollowing();flyTo(fitAll())}}")
-# a ride that ended on its own used to start the next one 25 s later even if you were using the map by then
-out = rep(out, 'if(chase.phase==="rest"){if(e>CH.REST&&!chaseBusy()){chase.home=fitAll();startRide(now)}return false}',
-               'if(chase.phase==="rest"){if(Date.now()-lastInput<(isTouch()?PHONE_IDLE:CH.IDLE)){wakeOff();chase=null;return false}   // you came back: wait for idle again\n'
-               '    if(e>CH.REST&&!chaseBusy()){chase.home=fitAll();startRide(now)}return false}')
 
 # ---- keyboard and screen readers: the controls come first in tab order (the map used to put 50+ trains ahead
 #      of them), stations can be reached and opened from the keyboard, and trains read naturally
@@ -423,6 +419,11 @@ out = rep(out, "</style>",
   "#spop .atssub{font-size:12.5px;color:var(--muted);align-self:center;margin-left:4px}\n"
   "#spop .atsnote{margin-top:10px}\n"
   "</style>")
+
+# ---- check-ins: shorter rides (50 s), and they carry on in a background tab (same edits as MetraBot)
+exec(open(os.path.join(F, "bgvoice.py")).read())
+for _a, _b in EDITS:
+    out = rep(out, _a, _b)
 
 # ---- a train stopped at a station doesn't turn its wheels (cute style)
 out = rep(out, "const roll=known&&!stale&&now-t.segT0<t.segDur&&Math.abs(t.segTo-t.segFrom)>.01&&!reduceMotion();",

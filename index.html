@@ -1585,7 +1585,7 @@ function ingest(data){
 async function poll(){
   clearTimeout(pollTimer);
   if(inflight)return;
-  if(document.hidden&&mode==="live"){nextPollAt=Date.now()+POLL;pollTimer=setTimeout(poll,POLL);return}   // tab in the background: don't ask (it catches up the moment you look)
+  if(document.hidden&&mode==="live"&&!bgVoice()){nextPollAt=Date.now()+POLL;pollTimer=setTimeout(poll,POLL);return}   // tab in the background: don't ask (it catches up the moment you look), unless check-ins are talking
   inflight=true;refreshStatus();const pollT0=performance.now();
   const ac=new AbortController(),to=setTimeout(()=>ac.abort(),FETCH_TIMEOUT);
   try{
@@ -2127,7 +2127,7 @@ tickMood();
    ===================================================================== */
 const ROT={a:0,cx:0,cy:0};                 // world turn (radians) around a pivot; the label layout uses it too
 function rotPt(p){if(!ROT.a)return p;const c=Math.cos(ROT.a),s=Math.sin(ROT.a),dx=p[0]-ROT.cx,dy=p[1]-ROT.cy;return[ROT.cx+dx*c-dy*s,ROT.cy+dx*s+dy*c]}
-const CH={IDLE:120000,IN:3200,RIDE:60000,OUT:2800,REST:25000,EXIT:550},PHONE_IDLE=20000,isTouch=()=>matchMedia("(pointer:coarse)").matches;let wakeLock=null;function wakeOn(){if(wakeLock||!navigator.wakeLock||!isTouch())return;wakeLock="wait";navigator.wakeLock.request("screen").then(l=>{if(chase&&wakeLock==="wait")wakeLock=l;else l.release()}).catch(()=>{wakeLock=null})}function wakeOff(){const l=wakeLock;wakeLock=null;if(l&&l!=="wait")l.release().catch(()=>{})}   // phones lock themselves within a minute: start sooner, and keep the screen on while it rides
+const CH={IDLE:120000,IN:3200,RIDE:50000,OUT:2800,REST:25000,EXIT:550},PHONE_IDLE=20000,isTouch=()=>matchMedia("(pointer:coarse)").matches;let wakeLock=null;function wakeOn(){if(wakeLock||!navigator.wakeLock||!isTouch())return;wakeLock="wait";navigator.wakeLock.request("screen").then(l=>{if(chase&&wakeLock==="wait")wakeLock=l;else l.release()}).catch(()=>{wakeLock=null})}function wakeOff(){const l=wakeLock;wakeLock=null;if(l&&l!=="wait")l.release().catch(()=>{})}   // phones lock themselves within a minute: start sooner, and keep the screen on while it rides
 let chase=null,chaseLast=null,chaseTilt=0,worldRotKey="",lastPtr=null;
 const horizon=$("horizon");
 const canTilt=()=>!isNarrow()&&(navigator.hardwareConcurrency||8)>4;
@@ -2175,11 +2175,10 @@ function setTilt(k){chaseTilt=k;
   stage.classList.add("tilt");stage.style.transform=`perspective(1000px) rotateX(${(34*k).toFixed(2)}deg) scale(${(1+.55*k).toFixed(3)})`;horizon.style.opacity=k.toFixed(3)}
 function chaseFrame(now,dt){
   if(!chase){
-    if(Date.now()-lastInput>(isTouch()?PHONE_IDLE:CH.IDLE)&&!chaseBusy()&&!reduceMotion()&&!document.hidden&&trains.length)startRide(now);
+    if(Date.now()-lastInput>(isTouch()?PHONE_IDLE:CH.IDLE)&&!chaseBusy()&&!reduceMotion()&&(!document.hidden||bgVoice())&&trains.length)startRide(now);
     return false}
   const e=now-chase.t0,t=chase.t;
-  if(chase.phase==="rest"){if(Date.now()-lastInput<(isTouch()?PHONE_IDLE:CH.IDLE)){wakeOff();chase=null;return false}   // you came back: wait for idle again
-    if(e>CH.REST&&!chaseBusy()){chase.home=fitAll();startRide(now)}return false}
+  if(chase.phase==="rest"){if(e>CH.REST&&!chaseBusy()){chase.home=fitAll();startRide(now)}return false}
   if((chase.phase==="in"||chase.phase==="ride")&&(!chaseOk(t)||chaseBusy()))endChase(now,false);
   if(chase.phase==="in"||chase.phase==="ride"){
     ROT.cx=t.shown[0];ROT.cy=t.shown[1];
@@ -2202,7 +2201,7 @@ function chaseFrame(now,dt){
   if(rk!==worldRotKey){worldRotKey=rk;rk?world.setAttribute("transform",rk):world.removeAttribute("transform")}
   return true}
 // mouse moves, clicks, scrolls and keys never end a ride: only closing the train's card (×) does
-document.addEventListener("visibilitychange",()=>{if(!document.hidden||!chase)return;const home=chase.phase!=="rest"&&chase.home;finishChase();if(home){Object.assign(vb,home);applyVB();updateMarkers()}});   // leaving mid-ride: straighten the map and zoom back out
+document.addEventListener("visibilitychange",()=>{if(!document.hidden||!chase||bgVoice())return;const home=chase.phase!=="rest"&&chase.home;finishChase();if(home){Object.assign(vb,home);applyVB();updateMarkers()}});   // leaving mid-ride: straighten the map and zoom back out
 
 /* =====================================================================
    TRAIN CHECK-INS
@@ -2263,7 +2262,7 @@ async function ciSay(kind,t){
   await voManifest();if(gen!==VO.gen)return;
   const f=ciFacts(t),lines=ciLines(kind,f);if(!lines.length)return;
   // can we speak it? every piece must be recorded and loaded, and audio must be allowed (after a first click)
-  let voice=!!(VO.man&&actx&&actx.state==="running"&&!document.hidden);
+  let voice=!!(VO.man&&actx&&actx.state==="running");
   if(voice){const packs=[...new Set(lines.flatMap(l=>l.p.map(q=>q[0])))];
     const bufs=await Promise.race([Promise.all(packs.map(voPack)),new Promise(r=>setTimeout(()=>r(null),2500))]);if(gen!==VO.gen)return;
     voice=!!bufs&&bufs.every(Boolean)&&lines.every(l=>l.p.every(([pk,k])=>VO.man[pk==="core"?"core":"lines"]&&(pk==="core"?VO.man.core[k]:VO.man.lines[pk]&&VO.man.lines[pk][k])))}
@@ -2275,7 +2274,13 @@ async function ciSay(kind,t){
     at+=.32}
   duckG.gain.setTargetAtTime(1,at,.6)}
 const nmSafe=id=>{const r=STN.get(id);return r?stnName(r):""};
-document.addEventListener("visibilitychange",()=>{if(document.hidden)ciStop()});
+// in a background tab (sound on, check-ins on) rides and check-ins carry on: the ride clock ticks once a second
+// without drawing, so you can listen while you work in another tab
+function bgVoice(){return ciOn&&!!actx&&actx.state==="running"}
+setInterval(()=>{if(!document.hidden||!bgVoice())return;const now=performance.now(),t=chase&&chase.t;
+  if(t&&!t.gone&&t.L){const p=poseAt(t.L.routes[t.ri],curS(t,now));t.shown=[p.x,p.y]}
+  chaseFrame(now,1)},1000);
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&!bgVoice())ciStop()});
 
 /* =====================================================================
    O'HARE AIRPORT TRANSIT SYSTEM (ATS)

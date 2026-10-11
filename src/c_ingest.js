@@ -65,7 +65,7 @@ function ingest(data){
 async function poll(){
   clearTimeout(pollTimer);
   if(inflight)return;
-  if(document.hidden&&mode==="live"){nextPollAt=Date.now()+POLL;pollTimer=setTimeout(poll,POLL);return}   // tab in the background: don't ask (it catches up the moment you look)
+  if(document.hidden&&mode==="live"&&!bgVoice()){nextPollAt=Date.now()+POLL;pollTimer=setTimeout(poll,POLL);return}   // tab in the background: don't ask (it catches up the moment you look), unless check-ins are talking
   inflight=true;refreshStatus();const pollT0=performance.now();
   const ac=new AbortController(),to=setTimeout(()=>ac.abort(),FETCH_TIMEOUT);
   try{
