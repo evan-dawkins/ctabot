@@ -616,12 +616,17 @@ button{touch-action:manipulation}
 #spop .atsb{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-size:13px;font-weight:700;margin-right:7px;vertical-align:-2px}
 #spop .atssub{font-size:12.5px;color:var(--muted);align-self:center;margin-left:4px}
 #spop .atsnote{margin-top:10px}
+.mark a.sib{color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--faint)}
+.mark a.sib:hover,.mark a.sib:focus-visible{color:var(--ink);border-bottom-color:var(--ink)}
+#intro .sib{font-size:14.5px;color:var(--muted);margin:0 0 14px}
+#intro .sib a{color:var(--ink);font-weight:700;text-decoration:none;border-bottom:1px solid var(--faint)}
+#intro .sib a:hover{border-bottom-color:var(--ink)}
 </style>
 </head>
 <body>
 
 <div class="top">
-  <div class="mark"><b>CTABot</b><span><i class="slogan">Enjoy the ride</i> · Unofficial Chicago L live map</span>
+  <div class="mark"><b>CTABot</b><span><i class="slogan">Enjoy the ride</i> · Unofficial Chicago L live map · <a class="sib" href="https://evan-dawkins.github.io/metrabot/" title="MetraBot: the same live map for Metra commuter rail">Like this? Try MetraBot →</a></span>
     <div class="tools">
       <button id="helpBtn" aria-label="What is this? Open the welcome guide" title="What is this? (?)" aria-controls="intro">?</button>
       <button id="snd" class="ibtn snd" aria-pressed="true" aria-label="Sound" aria-haspopup="menu" aria-expanded="false" aria-controls="sndmenu" title="Sound (M mutes)"><svg viewBox="0 0 20 20" aria-hidden="true"><path class="sp" d="M3 7.6h3.1L10.4 4v12l-4.3-3.6H3z"/><path class="w1" d="M13.2 7.6c.9.6 1.4 1.4 1.4 2.4s-.5 1.8-1.4 2.4"/><path class="w2" d="M15.5 5.2c1.7 1.2 2.6 2.9 2.6 4.8s-.9 3.6-2.6 4.8"/><path class="x" d="M13.2 7.8l4.6 4.4M17.8 7.8l-4.6 4.4"/></svg></button>
@@ -689,6 +694,7 @@ button{touch-action:manipulation}
     <li><span class="ic" style="--c:#47C6E4"><svg viewBox="0 0 24 24"><path class="f" d="M4 9h3.5L12 5v14l-4.5-4H4z"/><path d="M15.5 9.5c1 .7 1.5 1.5 1.5 2.5s-.5 1.8-1.5 2.5M18 7c1.8 1.3 2.7 3 2.7 5s-.9 3.7-2.7 5"/></svg></span><span><b>Pick a sound</b><small>Tap the speaker by the title.</small></span></li>
     <li><span class="ic" style="--c:#E27EA6"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path class="f" d="M17 12l4-3v6z"/><path d="M12 7.5V12l3 2"/></svg></span><span><b>Leave it be</b><small>After 2 minutes (20 seconds on a phone) it rides along with live trains. Close the train's card (×) to stop.</small></span></li>
   </ul>
+  <p class="sib">Like this? Try <a href="https://evan-dawkins.github.io/metrabot/">MetraBot</a>, the same kind of live map for Metra commuter rail.</p>
   <p class="nota">Not affiliated with the Chicago Transit Authority (CTA). Train positions and arrival times come from CTA's public Train Tracker data.</p>
   <div class="foot">
     <button class="go">Start watching</button>

@@ -35,7 +35,7 @@ head = rep(head, "/* ---------- map ---------- */", "/* ---------- map ---------
            ".grid{fill:none;stroke:var(--grid);stroke-width:1;vector-effect:non-scaling-stroke}")
 head = rep(head, 'aria-label="Schematic map of Metra commuter rail with live train positions"', 'aria-label="Map of the CTA L with live train positions"')
 head = rep(head, '<div class="mark"><b>MetraBot</b><span><i class="slogan">The way to really fly</i> · Unofficial Chicagoland live map</span>',
-           '<div class="mark"><b>CTABot</b><span><i class="slogan">Enjoy the ride</i> · Unofficial Chicago L live map</span>')
+           '<div class="mark"><b>CTABot</b><span><i class="slogan">Enjoy the ride</i> · Unofficial Chicago L live map · <a class="sib" href="https://evan-dawkins.github.io/metrabot/" title="MetraBot: the same live map for Metra commuter rail">Like this? Try MetraBot →</a></span>')
 head = re.sub(r'\s*<button id="rcBtn"[^\n]*</button>', "", head)
 head = re.sub(r'<section id="rcard"[^\n]*</section>\n', "", head)
 head = rep(head, 'title="Metra service alerts"', 'title="CTA service alerts"')
@@ -60,10 +60,10 @@ head = rep(head, ':root[data-theme="light"] .trail .tcore{stroke-width:2.4px}', 
 head = rep(head, ".train .glow{opacity:.15}", ".train .glow{opacity:0}")
 head = rep(head, ".city{fill:var(--city)}", ".city{fill:var(--city)}\n.track.case{stroke:var(--city);stroke-width:calc(var(--tw) + 1.6px)}")
 # ---- not affiliated, in the welcome guide
-head = rep(head, "  </ul>\n  <div class=\"foot\">", "  </ul>\n  <p class=\"nota\">Not affiliated with the Chicago Transit Authority (CTA). Train positions and arrival times come from CTA's public Train Tracker data.</p>\n  <div class=\"foot\">")
+head = rep(head, "  </ul>\n  <div class=\"foot\">", "  </ul>\n  <p class=\"sib\">Like this? Try <a href=\"https://evan-dawkins.github.io/metrabot/\">MetraBot</a>, the same kind of live map for Metra commuter rail.</p>\n  <p class=\"nota\">Not affiliated with the Chicago Transit Authority (CTA). Train positions and arrival times come from CTA's public Train Tracker data.</p>\n  <div class=\"foot\">")
 head = rep(head, "#card .ft .wn{color:var(--warn)}", "#card .ft .wn{color:var(--warn)}\n#card .ups{border-top:1px solid var(--edge);padding:7px 12px 8px;display:grid;gap:5px;max-height:214px;overflow-y:auto;overscroll-behavior:contain}\n#card .ups .uh{margin-bottom:1px}\n#card .ups .row{grid-template-columns:66px 1fr auto;gap:6px}\n#card .ups .row .v{white-space:normal;overflow-wrap:anywhere;line-height:1.2}\n#card .ups .row.pred{opacity:.55}")
 head = rep(head, "#intro .foot{display:flex;", "#intro .nota{font-size:12.5px;line-height:1.4;color:var(--muted);margin:0 0 12px}\n#intro .foot{display:flex;")
-if "Metra" in head.replace("MetraBot", ""):
+if "Metra" in head.replace("MetraBot", "").replace("for Metra commuter rail", ""):   # (the link to MetraBot names it on purpose)
     sys.exit("Metra wording left in the page markup: " + re.search(r".{40}Metra.{40}", head).group(0))
 
 # ---------------------------------------------------------------- script
@@ -424,6 +424,13 @@ out = rep(out, "</style>",
 out = rep(out, "#card .row{display:grid;grid-template-columns:50px 1fr auto;gap:8px;align-items:baseline}",
                "#card .row{display:grid;grid-template-columns:66px 1fr auto;gap:8px;align-items:baseline}")
 
+# ---- links to the sister map (MetraBot), in the title line and the welcome guide
+out = rep(out, "</style>", ".mark a.sib{color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--faint)}\n"
+  ".mark a.sib:hover,.mark a.sib:focus-visible{color:var(--ink);border-bottom-color:var(--ink)}\n"
+  "#intro .sib{font-size:14.5px;color:var(--muted);margin:0 0 14px}\n"
+  "#intro .sib a{color:var(--ink);font-weight:700;text-decoration:none;border-bottom:1px solid var(--faint)}\n"
+  "#intro .sib a:hover{border-bottom-color:var(--ink)}\n</style>")
+
 # ---- check-ins: shorter rides (50 s), and they carry on in a background tab (same edits as MetraBot)
 exec(open(os.path.join(F, "bgvoice.py")).read())
 for _a, _b in EDITS:
@@ -438,7 +445,7 @@ out = rep(out, 'lineEls[k].track.classList.toggle("dim",!!key&&k!==key)}', 'line
 
 # whole-page wording and storage names
 out = out.replace('"metrabot.', '"ctabot.').replace("metrabot.favorites", "ctabot.favorites")
-left = [m.group(0) for m in re.finditer(r".{30}\bMetra\b.{30}", out.replace(blk("i_ats.js"), ""))]   # the ATS card names Metra's airport stop on purpose
+left = [m.group(0) for m in re.finditer(r".{30}\bMetra\b.{30}", out.replace(blk("i_ats.js"), "").replace("for Metra commuter rail", ""))]   # the ATS card names Metra's airport stop on purpose
 if left:
     sys.exit("Metra wording left: " + " | ".join(left[:5]))
 open(os.path.join(F, "..", "index.html"), "w").write(out)
