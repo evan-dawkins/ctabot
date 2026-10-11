@@ -35,7 +35,7 @@ head = rep(head, "/* ---------- map ---------- */", "/* ---------- map ---------
            ".grid{fill:none;stroke:var(--grid);stroke-width:1;vector-effect:non-scaling-stroke}")
 head = rep(head, 'aria-label="Schematic map of Metra commuter rail with live train positions"', 'aria-label="Map of the CTA L with live train positions"')
 head = rep(head, '<div class="mark"><b>MetraBot</b><span><i class="slogan">The way to really fly</i> · Unofficial Chicagoland live map</span>',
-           '<div class="mark"><b>CTABot</b><span><i class="slogan">Enjoy the ride</i> · Unofficial Chicago L live map · <a class="sib" href="https://evan-dawkins.github.io/metrabot/" title="MetraBot: the same live map for Metra commuter rail">Like this? Try MetraBot →</a></span>')
+           '<div class="mark"><b>CTABot</b><span><i class="slogan">Enjoy the ride</i> · Unofficial Chicago L live map</span>')
 head = re.sub(r'\s*<button id="rcBtn"[^\n]*</button>', "", head)
 head = re.sub(r'<section id="rcard"[^\n]*</section>\n', "", head)
 head = rep(head, 'title="Metra service alerts"', 'title="CTA service alerts"')
@@ -424,9 +424,10 @@ out = rep(out, "</style>",
 out = rep(out, "#card .row{display:grid;grid-template-columns:50px 1fr auto;gap:8px;align-items:baseline}",
                "#card .row{display:grid;grid-template-columns:66px 1fr auto;gap:8px;align-items:baseline}")
 
-# ---- links to the sister map (MetraBot), in the title line and the welcome guide
-out = rep(out, "</style>", ".mark a.sib{color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--faint)}\n"
-  ".mark a.sib:hover,.mark a.sib:focus-visible{color:var(--ink);border-bottom-color:var(--ink)}\n"
+# ---- links to the sister map (MetraBot): beside the zoom buttons, and in the welcome guide
+out = rep(out, '<div class="zoom">\n  <button id="zout"', '<div class="zoom">\n  <a class="sib" href="https://evan-dawkins.github.io/metrabot/" title="MetraBot: the same live map for Metra commuter rail"><span class="lt">Like this?&nbsp;</span>Try MetraBot&nbsp;→</a><span class="sep"></span>\n  <button id="zout"')
+out = rep(out, "</style>", ".zoom a.sib{display:flex;align-items:center;padding:0 8px;border-radius:7px;font-size:13.5px;color:var(--muted);text-decoration:none;white-space:nowrap}\n"
+  ".zoom a.sib:hover,.zoom a.sib:focus-visible{background:var(--hover);color:var(--ink)}\n@media (max-width:400px){.zoom a.sib .lt{display:none}}\n"
   "#intro .sib{font-size:14.5px;color:var(--muted);margin:0 0 14px}\n"
   "#intro .sib a{color:var(--ink);font-weight:700;text-decoration:none;border-bottom:1px solid var(--faint)}\n"
   "#intro .sib a:hover{border-bottom-color:var(--ink)}\n</style>")
