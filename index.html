@@ -632,7 +632,9 @@ button{touch-action:manipulation}
 .sat{display:none;filter:brightness(.72) saturate(.85)}
 body.satmode .sat{display:inline}
 :root[data-theme="light"] .sat{filter:brightness(.97) saturate(.9)}
-body.satmode .town,body.satmode .city,body.satmode .grid,body.satmode .lake,body.satmode .shore,body.satmode .water{display:none}
+body.satmode .town,body.satmode .city,body.satmode .grid,body.satmode .water{display:none}
+#satBtn svg *{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+#satBtn[aria-pressed="true"]{color:var(--ink);background:var(--pressed)}
 #satcred{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:1;pointer-events:none;font-size:11px;color:var(--muted);background:var(--panel);padding:2px 8px;border-radius:6px;white-space:nowrap}
 #satcred[hidden]{display:none}
 @media (max-width:760px){#satcred{left:10px;transform:none;bottom:calc(116px + env(safe-area-inset-bottom,0px))}}
