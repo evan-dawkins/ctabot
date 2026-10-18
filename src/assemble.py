@@ -298,7 +298,7 @@ out = "\n".join([
     alerts, "",
     status, blk("g_card.js"), card_place, "",
     blk("d_times.js"), "",
-    fav, board, blk("e_mood.js"), mood_tail, "", chase_s, ci_head, blk("f_checkins.js"), ci_tail, blk("i_ats.js"), main])
+    fav, board, blk("e_mood.js"), mood_tail, "", chase_s, ci_head, blk("f_checkins.js"), ci_tail, blk("i_ats.js"), blk("j_sat.js"), main])
 # (leaving the tab mid-ride: the reset now comes from MetraBot itself)
 
 # ================================================================ CTABot-only fixes (Oct 2026 audit)
@@ -435,6 +435,20 @@ out = rep(out, "</style>", SIB_CSS+
   "#intro .sib{font-size:14.5px;color:var(--muted);margin:0 0 14px}\n"
   "#intro .sib a{color:var(--ink);font-weight:700;text-decoration:none;border-bottom:1px solid var(--faint)}\n"
   "#intro .sib a:hover{border-bottom-color:var(--ink)}\n</style>")
+
+# ---- satellite map (src/j_sat.js): a button by the title (S), the photo's credit, styles, and a per-frame update
+_globe = ('<button id="satBtn" class="ibtn" aria-pressed="false" aria-label="Switch to the satellite map" title="Satellite map (S)">'
+          '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.6"/><path d="M3.4 10h13.2M10 3.4c2 2 2.9 4.2 2.9 6.6s-.9 4.6-2.9 6.6M10 3.4c-2 2-2.9 4.2-2.9 6.6s.9 4.6 2.9 6.6"/></svg></button>\n      ')
+out = rep(out, '<button id="theme" class="ibtn theme"', _globe + '<button id="theme" class="ibtn theme"')
+out = rep(out, '<div id="card" class="pnl" role="dialog"', '<div id="satcred" hidden>Imagery: USDA, USGS The National Map</div>\n<div id="card" class="pnl" role="dialog"')
+out = rep(out, "applyVB();atsFrame();", "applyVB();atsFrame();satFrame();")
+out = rep(out, "</style>", ".sat{display:none;filter:brightness(.72) saturate(.85)}\nbody.satmode .sat{display:inline}\n"
+  ':root[data-theme="light"] .sat{filter:brightness(.97) saturate(.9)}\n'
+  "body.satmode .town,body.satmode .city,body.satmode .grid,body.satmode .lake,body.satmode .shore,body.satmode .water{display:none}\n"
+  "#satcred{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:1;pointer-events:none;"
+  "font-size:11px;color:var(--muted);background:var(--panel);padding:2px 8px;border-radius:6px;white-space:nowrap}\n#satcred[hidden]{display:none}\n"
+  "@media (max-width:760px){#satcred{left:10px;transform:none;bottom:calc(116px + env(safe-area-inset-bottom,0px))}}\n"
+  "@media (max-width:360px){#satBtn{display:none}}\n</style>")
 
 # ---- the tilted ride view stays sharp when something repaints (same edits as MetraBot: src/tiltfix.py)
 exec(open(os.path.join(F, "tiltfix.py")).read())

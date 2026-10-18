@@ -1,0 +1,19 @@
+# Temporary (branch 'satellite' only): fetch a few USGS tiles to check the satellite map's alignment offline.
+name: Satellite check tiles
+on:
+  push:
+    branches: [satellite]
+    paths: ["satcheck/fetch.py", ".github/workflows/satcheck.yml"]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 satcheck/fetch.py
+      - run: |
+          git add satcheck/tiles
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Satellite check tiles" && git pull --rebase -q && git push
