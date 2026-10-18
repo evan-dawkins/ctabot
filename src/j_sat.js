@@ -3,12 +3,13 @@
    Aerial photos from the USGS National Map (USDA NAIP orthoimagery, public domain), loaded straight from
    USGS as the map's background. Each 256 px Web Mercator tile is placed by its own latitude/longitude, so it
    lines up with the real track; only tiles for what's on screen load, at a detail level matched to the zoom.
-   The drawn city, street grid, lake and its glints step aside while it's on. Remembered in this browser.
+   The drawn city and street grid step aside while it's on; Lake Michigan stays drawn (USGS has no photos far
+   out on the lake). Remembered in this browser.
    ===================================================================== */
 const SAT_URL=(z,x,y)=>`https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/${z}/${y}/${x}`;
 const SAT_KEY="ctabot.satellite",SAT_ZMAX=16,SAT_ZMIN=9,SAT_MAXTILES=120;
 let satOn=(()=>{try{return localStorage.getItem(SAT_KEY)==="1"}catch(_){return false}})();
-const satG=el("g",{class:"sat","aria-hidden":"true"});world.insertBefore(satG,trackG);
+const satG=el("g",{class:"sat","aria-hidden":"true"});world.insertBefore(satG,world.firstChild);   // under everything: the drawn lake, the sonar and the lines all sit on top
 const satLayers=new Map(),satTiles=new Map();let satKey="",satT=0,satZ=0;
 const unGeo=(x,y)=>[GP.lat0-y/(110.54*GP.k),x/(111.32*GP.cos*GP.k)+GP.lon0];   // map units -> lat, lon
 const tileLon=(x,z)=>x/2**z*360-180,tileLat=(y,z)=>Math.atan(Math.sinh(Math.PI*(1-2*y/2**z)))*180/Math.PI;
