@@ -436,6 +436,11 @@ out = rep(out, "</style>", SIB_CSS+
   "#intro .sib a{color:var(--ink);font-weight:700;text-decoration:none;border-bottom:1px solid var(--faint)}\n"
   "#intro .sib a:hover{border-bottom-color:var(--ink)}\n</style>")
 
+# ---- the tilted ride view stays sharp when something repaints (same edits as MetraBot: src/tiltfix.py)
+exec(open(os.path.join(F, "tiltfix.py")).read())
+for _a, _b in EDITS:
+    out = rep(out, _a, _b)
+
 # ---- check-ins: shorter rides (50 s), and they carry on in a background tab (same edits as MetraBot)
 exec(open(os.path.join(F, "bgvoice.py")).read())
 for _a, _b in EDITS:

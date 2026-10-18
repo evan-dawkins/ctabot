@@ -348,7 +348,8 @@ body.idle .console,body.idle .zoom,body.idle #helpBtn,body.idle .ibtn{opacity:.3
 
 /* ---------- train of the moment (screensaver) ---------- */
 body.chasing .stlbl,body.chasing .lakelbl{display:none}
-#stage.tilt{transform-origin:50% 62%;will-change:transform}
+#stage.tilt{transform-origin:50% 62%}
+#stage.tilt.moving{will-change:transform}   /* only while it tilts in or out: then it's redrawn sharp at its final size */
 #horizon{position:absolute;left:0;right:0;top:0;height:30%;pointer-events:none;opacity:0;
   background:linear-gradient(var(--bg) 18%,transparent)}
 /* ---------- today's report card ---------- */
@@ -2197,8 +2198,8 @@ function rideCard(){return!!(chase&&(chase.manual||chase.card)&&selected===chase
 function hideChaseCard(){if(!chase||!chase.card)return;chase.card=false;if(selected===chase.t)closeCard()}
 function finishChase(){hideChaseCard();ciStop();wakeOff();chase=null;ROT.a=0;setTilt(0);worldRotKey="";world.removeAttribute("transform");document.body.classList.remove("chasing");labelsDirty=true}
 function setTilt(k){chaseTilt=k;
-  if(k<=.001){if(stage.classList.contains("tilt")){stage.classList.remove("tilt");stage.style.transform="";horizon.style.opacity=0}return}
-  stage.classList.add("tilt");stage.style.transform=`perspective(1000px) rotateX(${(34*k).toFixed(2)}deg) scale(${(1+.55*k).toFixed(3)})`;horizon.style.opacity=k.toFixed(3)}
+  if(k<=.001){if(stage.classList.contains("tilt")){stage.classList.remove("tilt","moving");stage.style.transform="";horizon.style.opacity=0}return}
+  stage.classList.add("tilt");stage.classList.toggle("moving",k<.999);stage.style.transform=`perspective(1000px) rotateX(${(34*k).toFixed(2)}deg) scale(${(1+.55*k).toFixed(3)})`;horizon.style.opacity=k.toFixed(3)}
 function chaseFrame(now,dt){
   if(!chase){
     if(Date.now()-lastInput>(isTouch()?PHONE_IDLE:CH.IDLE)&&!chaseBusy()&&!reduceMotion()&&(!document.hidden||bgVoice())&&trains.length)startRide(now);
