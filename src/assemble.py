@@ -444,7 +444,8 @@ out = rep(out, '<div id="card" class="pnl" role="dialog"', '<div id="satcred" hi
 out = rep(out, "applyVB();atsFrame();", "applyVB();atsFrame();satFrame();")
 out = rep(out, "</style>", ".sat{display:none;filter:brightness(.72) saturate(.85)}\nbody.satmode .sat{display:inline}\n"
   ':root[data-theme="light"] .sat{filter:brightness(.97) saturate(.9)}\n'
-  "body.satmode .town,body.satmode .city,body.satmode .grid{display:none}\n"   # (the drawn lake, its glints and the sonar stay on top of the photos)
+  ".river{fill:var(--lake);stroke:var(--shore);stroke-width:.6px;vector-effect:non-scaling-stroke}\n"
+  "body.satmode .town,body.satmode .city,body.satmode .grid,body.satmode .river{display:none}\n"   # (the drawn lake, its glints and the sonar stay on top of the photos)
   "#satBtn svg *{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}\n"
   '#satBtn[aria-pressed="true"]{color:var(--ink);background:var(--pressed)}\n'
   "#satcred{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:1;pointer-events:none;"
