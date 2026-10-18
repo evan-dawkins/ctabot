@@ -24,8 +24,6 @@ for(const t of NET.base.towns.filter(t=>t.label).sort((a,b)=>a.rank-b.rank))SL(t
 const onEdge=p=>Math.abs(p[0]-BOX.x1)<.06||Math.abs(p[1]-BOX.y0)<.06||Math.abs(p[1]-BOX.y1)<.06;
 const LAKE_RINGS=NET.base.lake.map(r=>r.map(([x,y])=>[Math.abs(x-BOX.x1)<.06?x+5000:x,Math.abs(y-BOX.y0)<.06?y-4000:Math.abs(y-BOX.y1)<.06?y+4000:y]));
 const LAKE=ringD(LAKE_RINGS);
-// the Chicago River, its North and South Branches and canals, in the lake's colour (drawn map only)
-if(NET.base.river&&NET.base.river.length)el("path",{class:"river",d:ringD(NET.base.river),"fill-rule":"nonzero"},world);
 el("path",{class:"lake",d:LAKE},world);
 {let d="";for(const r of NET.base.lake){let open=false;      // the shoreline only, not the map's own edges
    for(let i=0;i<r.length;i++){const a=r[i],b=r[(i+1)%r.length];

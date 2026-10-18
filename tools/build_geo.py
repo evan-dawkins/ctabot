@@ -4,13 +4,11 @@ Source: US Census Bureau TIGER/Line 2023 (public domain).
   - COASTLINE (national): the Great Lakes shoreline as lines; the lake is the part of the map box on
     the water side of them (found by checking which piece contains a point known to be open lake).
   - PLACE for Illinois (17): city and village boundaries (Chicago, Evanston, Skokie, Oak Park, ...).
-  - AREAWATER for Cook County (17031): the Chicago River and its branches and canals, as water areas.
 Runs on GitHub (see .github/workflows/geo.yml) because census.gov can't be reached from everywhere.
 
 Output, all as [lat, lon] rings simplified to about 15 m:
   lake:   rings of Lake Michigan, cut to the map's area
   places: [{name, rings}] for every town that touches the map area
-  river:  rings of the Chicago River system (main stem, North and South Branches, North Shore Channel, Ship Canal)
 """
 import io, json, math, sys, urllib.request, zipfile
 import shapefile  # pyshp
@@ -22,10 +20,6 @@ PLACE = f"https://www2.census.gov/geo/tiger/TIGER{YEAR}/PLACE/tl_{YEAR}_17_place
 # the area covered: well past every L station (Linden 42.07 N, 95th 41.72 N, O'Hare -87.90, lakefront)
 S, N, W, E = 41.50, 42.25, -88.20, -87.25     # wider than the map itself, so its cut edges sit off-screen
 SIMPLIFY_M = 15
-AREAWATER = f"https://www2.census.gov/geo/tiger/TIGER{YEAR}/AREAWATER/tl_{YEAR}_17031_areawater.zip"
-import re
-RIVER = re.compile(r"chicago r|n(orth)? ?br|s(outh)? ?br|north shore ch|n shore ch|sanitary and ship|bubbly", re.I)
-RIVER_SIMPLIFY_M = 6
 
 
 def fetch(url):
@@ -134,24 +128,7 @@ def main():
         sys.exit("Chicago's boundary is missing: stopping")
 
     places.sort(key=lambda pl: pl["name"])
-
-    river, rnames = [], set()
-    a = reader(fetch(AREAWATER))
-    names = [f[0] for f in a.fields[1:]]
-    for rec, shp in zip(a.records(), a.shapes()):
-        r = dict(zip(names, rec))
-        nm = str(r.get("FULLNAME") or "")
-        if not nm or not RIVER.search(nm) or not touches(shp.bbox):
-            continue
-        rnames.add(nm)
-        for g in rings(shp):
-            rr = rdp(clip(g), RIVER_SIMPLIFY_M)
-            if len(rr) >= 4:
-                river.append([[round(p[1], 5), round(p[0], 5)] for p in rr])
-    if not river:
-        sys.exit("No Chicago River polygons found: stopping")
-    print("river:", len(river), "ring(s) from", sorted(rnames))
-    json.dump({"source": "US Census Bureau TIGER/Line " + YEAR, "box": [S, W, N, E], "lake": lake, "places": places, "river": river},
+    json.dump({"source": "US Census Bureau TIGER/Line " + YEAR, "box": [S, W, N, E], "lake": lake, "places": places},
               open("data/geo.json", "w"), separators=(",", ":"))
     print(f"lake: {len(lake)} ring(s), {sum(map(len, lake))} points; places: {len(places)}")
     print(", ".join(pl["name"] for pl in places))
