@@ -632,7 +632,8 @@ button{touch-action:manipulation}
 .sat{display:none;filter:brightness(.72) saturate(.85)}
 body.satmode .sat{display:inline}
 :root[data-theme="light"] .sat{filter:brightness(.97) saturate(.9)}
-.river{fill:var(--lake);stroke:var(--shore);stroke-width:.6px;vector-effect:non-scaling-stroke}
+.river{fill:#2A5A80;stroke:#2A5A80;stroke-width:1.2px;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+:root[data-theme="light"] .river{fill:#A6CFEC;stroke:#A6CFEC}
 body.satmode .town,body.satmode .city,body.satmode .grid,body.satmode .river{display:none}
 #satBtn svg *{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 #satBtn[aria-pressed="true"]{color:var(--ink);background:var(--pressed)}
