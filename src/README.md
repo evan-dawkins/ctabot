@@ -8,6 +8,7 @@
 | `assemble.py` | Builds `../index.html`: takes the engine, swaps in the CTA blocks below, and applies CTA-only patches. |
 | `a_network.js` … `h_car.js` | CTA-specific code: network data, base map, live feed, arrivals, ticker, check-ins, train card, little trains. |
 | `i_ats.js` | O'Hare's Airport Transit System: drawn when zoomed in at the airport, with simulated trains (it has no live feed). |
+| `j_sat.js` | The satellite map: USGS aerial photo tiles placed under the lines, loaded for what's on screen. |
 | `bgvoice.py` | Check-in timing edits shared word for word with MetraBot (shorter rides, keep going in a background tab). |
 | `icon.svg`, `icon180.png` | The favicon and home-screen icon. |
 
