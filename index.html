@@ -661,12 +661,16 @@ button{touch-action:manipulation}
   <button id="fit" class="fit" title="Show the whole network (0)" aria-label="Show the whole network"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg></button>
 </div>
 <script>
-/* "Like this? Try MetraBot" folds into a small chevron beside the zoom buttons; your choice is remembered */
+/* "Like this? Try MetraBot" folds into a small chevron beside the zoom buttons.
+   Mouse: it slides open while you hover over it and folds away when you leave. Touch or keyboard: tap the chevron. */
 (function(){const w=document.getElementById("sibw"),b=document.getElementById("sibt"),a=document.getElementById("sibl");if(!w)return;
-  const set=(o,save)=>{w.classList.toggle("open",o);b.setAttribute("aria-expanded",String(o));b.setAttribute("aria-label",(o?"Hide":"Show")+" the link to MetraBot");
-    a.tabIndex=o?0:-1;if(save)try{localStorage.setItem("ctabot.sibOpen",o?"1":"0")}catch(_){}};
-  let o=false;try{o=localStorage.getItem("ctabot.sibOpen")==="1"}catch(_){}set(o,false);
-  b.addEventListener("click",e=>{e.stopPropagation();set(!w.classList.contains("open"),true)});})();
+  let t=0,hov=false;const set=o=>{clearTimeout(t);w.classList.toggle("open",o);b.setAttribute("aria-expanded",String(o));
+    b.setAttribute("aria-label",(o?"Hide":"Show")+" the link to MetraBot");a.tabIndex=o?0:-1};
+  w.addEventListener("pointerenter",e=>{if(e.pointerType==="mouse"){hov=true;set(true)}});
+  w.addEventListener("pointerleave",e=>{if(e.pointerType==="mouse"){hov=false;clearTimeout(t);t=setTimeout(()=>set(false),300)}});
+  w.addEventListener("focusout",e=>{if(!w.contains(e.relatedTarget))set(false)});
+  b.addEventListener("click",e=>{e.stopPropagation();if(!hov)set(!w.classList.contains("open"))});
+  set(false)})();
 </script>
 
 <div id="stage">
