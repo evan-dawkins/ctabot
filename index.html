@@ -1088,9 +1088,9 @@ function startAudio(){
   const gain=v=>{const g=actx.createGain();g.gain.value=v;return g};
   // brown noise: unchanged
   bus.brown=master();loop(brownBuf).connect(filt("lowpass",650,.3)).connect(gain(.07)).connect(bus.brown);
-  // water: narrow bands of hiss that wander around like moving water, plus the odd bubble. No brown bed.
+  // water: mostly bubbles, over a very quiet, low murmur of moving water (broad and low, so it never sounds like wind)
   bus.water=master();const wsrc=loop(whiteBuf);
-  waterBands=[340,560,880,1300].map((f,i)=>{const bp=filt("bandpass",f,7),g=gain(i===3?.07:.13);wsrc.connect(bp).connect(g).connect(bus.water);return{bp,g,base:f}});
+  waterBands=[170,260].map(f=>{const bp=filt("bandpass",f,1.2),g=gain(.03);wsrc.connect(bp).connect(filt("lowpass",420,.5)).connect(g).connect(bus.water);return{bp,g,base:f}});
   // sonar: a muffled underwater rumble that slowly swells, with the ping on top
   bus.sonar=master();
   const swell=gain(.065),lfo=actx.createOscillator(),depth=gain(.024);lfo.frequency.value=.07;lfo.connect(depth).connect(swell.gain);lfo.start();
@@ -1102,7 +1102,7 @@ function startAudio(){
 }
 function wanderWater(){clearTimeout(waterTO);if(sndMode!=="water"||!actx)return;
   const t=actx.currentTime;
-  for(const b of waterBands){b.bp.frequency.setTargetAtTime(b.base*(.7+Math.random()*.7),t,.9);b.g.gain.setTargetAtTime((b.base>1e3?.07:.13)*(.4+Math.random()*.9),t,.7)}
+  for(const b of waterBands){b.bp.frequency.setTargetAtTime(b.base*(.85+Math.random()*.3),t,2.5);b.g.gain.setTargetAtTime(.03*(.6+Math.random()*.6),t,2)}
   waterTO=setTimeout(wanderWater,900+Math.random()*900)}
 function applySound(fast){
   sndOn=sndMode!=="off";
@@ -1119,7 +1119,7 @@ function applySound(fast){
     g.linearRampToValueAtTime(on?SND_LEVEL[m]:0,t+(on?(fast?1.4:2.5):.6))}
 }
 function scheduleBubbles(){clearTimeout(bubbleTO);if(sndMode!=="water"||!actx)return;
-  bubbleTO=setTimeout(()=>{if(actx.state==="running"&&!document.hidden)bubble();scheduleBubbles()},600+Math.random()*2800)}
+  bubbleTO=setTimeout(()=>{if(actx.state==="running"&&!document.hidden)bubble();scheduleBubbles()},350+Math.random()*1600)}
 function bubble(){                                                            // a quick rising blip, sometimes two or three in a row
   const n=Math.random()<.35?2+Math.floor(Math.random()*2):1;let t=actx.currentTime;
   for(let i=0;i<n;i++){const f=300+Math.random()*500,d=.05+Math.random()*.06;
