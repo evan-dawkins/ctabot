@@ -452,6 +452,11 @@ out = rep(out, "</style>", ".sat{display:none;filter:brightness(.72) saturate(.8
   "@media (max-width:760px){#satcred{left:10px;transform:none;bottom:calc(116px + env(safe-area-inset-bottom,0px))}}\n"
   "@media (max-width:360px){#satBtn{display:none}}\n</style>")
 
+# ---- the ride camera turns smoothly (same edits as MetraBot: src/chasefix.py)
+exec(open(os.path.join(F, "chasefix.py")).read())
+for _a, _b in EDITS:
+    out = rep(out, _a, _b)
+
 # ---- the tilted ride view stays sharp when something repaints (same edits as MetraBot: src/tiltfix.py)
 exec(open(os.path.join(F, "tiltfix.py")).read())
 for _a, _b in EDITS:

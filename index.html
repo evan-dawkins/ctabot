@@ -2178,6 +2178,12 @@ function pickChaseTrain(){const c=trains.filter(chaseOk);if(!c.length)return nul
   const moving=c.filter(t=>Math.abs(t.segTo-t.segFrom)>.05),pool=(moving.length?moving:c).filter(t=>t!==chaseLast||c.length===1);
   return pool[Math.floor(Math.random()*pool.length)]}
 const headingOf=t=>-Math.PI/2-t.rot*Math.PI/180;                     // the world turn that points this train up the screen
+// the same, but from where the track goes over the next stretch (about a quarter of the screen ahead), so the
+// camera starts round a bend smoothly and ignores small kinks
+function chaseHeading(t,now){const r=t.L.routes[t.ri],p=poseAt(r,curS(t,now)),L=vb.w*.22,tot=r.ac[r.ac.length-1];
+  const d1=Math.max(0,Math.min(tot,p.d+t.dirSign*L)),d0=Math.max(0,Math.min(tot,p.d-t.dirSign*L*.25));
+  if(!(Math.abs(d1-d0)>L*.3))return headingOf(t);
+  const a=along(r.anc,r.ac,d0),b=along(r.anc,r.ac,d1);return angDiff(0,-Math.PI/2-Math.atan2(b[1]-a[1],b[0]-a[0]))}   // the short way round
 function rideVB(t){const W=cw(),H=ch(),w=Math.max(MIN_W,Math.min(maxW(),Math.max(MIN_W*3,FIT_W/14)*(chase&&chase.zf||1))),h=w*H/W,k=w/W;let sx=W/2,sy=H*.62;
   if(isNarrow()){const I=uiInsets();                                 // phone: keep the train in the open map, clear of its card
     if(sideSheet()){const cwid=(card.offsetWidth||Math.min(340,W*.46))+16;sx=cwid+(W-cwid)/2;sy=I.top+(H-I.top-I.bot)*.58}
@@ -2218,11 +2224,13 @@ function chaseFrame(now,dt){
     return false}
   const e=now-chase.t0,t=chase.t;
   if(chase.phase==="rest"){if(e>CH.REST&&!chaseBusy()){chase.home=fitAll();startRide(now)}return false}
-  if((chase.phase==="in"||chase.phase==="ride")&&(!chaseOk(t)||chaseBusy()))endChase(now,false);
+  if((chase.phase==="in"||chase.phase==="ride")&&(!chaseOk(t)||chaseBusy())){endChase(now,false);return true}   // (next frame starts the pull-back from here, instead of snapping)
+  if((chase.phase==="in"||chase.phase==="ride")&&!chase.manual){if(chase.dir==null)chase.dir=t.dirSign;else if(t.dirSign!==chase.dir){endChase(now,false);return true}}   // it turned round: end the ride, don't spin the map
   if(chase.phase==="in"||chase.phase==="ride"){
     ROT.cx=t.shown[0];ROT.cy=t.shown[1];
-    const want=headingOf(t);
-    chase.a+=angDiff(chase.a,want)*(1-Math.exp(-dt/1.1));            // ease round the bends over about a second
+    const want=chaseHeading(t,now);
+    {const d=angDiff(chase.a,want),w0=1.6;chase.av=(chase.av||0)+(w0*w0*d-2*w0*(chase.av||0))*dt;   // a soft spring, never faster than ~25 degrees a second
+     chase.av=Math.max(-.45,Math.min(.45,chase.av));chase.a+=chase.av*dt}
     if(chase.phase==="in"){const k=Math.min(1,e/CH.IN),z=easeIO(k),r=easeIO(Math.max(0,(k-.2)/.8));
       if(k===0||chase.a===0)chase.a=want;
       Object.assign(vb,lerpVB(chase.from,rideVB(t),z));ROT.a=chase.a*r;setTilt(chase.goTilt?r:0);
